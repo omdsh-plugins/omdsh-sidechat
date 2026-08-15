@@ -1,0 +1,49 @@
+/** `omdsh-sidechat` namespace dictionaries. */
+
+/** Simplified Chinese dictionary (the key-set source of truth). */
+export const zh = {
+  'title': '侧边对话',
+  'placeholder': '就这里问一句…',
+  'blank': '这是一条独立的对话，说的话不会进入你正在进行的那一条。',
+  'close': '关闭',
+  'newChat': '新对话',
+  'showInChat': '在 Chat 窗口中展现',
+  'connecting': '正在准备对话…',
+  /* Untranslated on purpose: the harness's own turn status says exactly this. */
+  'diving': 'Deep diving...',
+  'stopped': '已停止',
+  'anchor.selection': '选中的文字',
+  'status.idle': 'Enter 发送',
+  'status.queue': '正在回答 · 这句排到本轮之后',
+  'status.steerHint': '⌘⏎ 插进本轮',
+  'excerpt.omitted': '中间 {count} 行不会带上',
+  'excerpt.clipped': '引用过长，尾部不会带上',
+  'failed': '发送失败：{code}',
+  'toggle.label': '侧边对话',
+  'toggle.hint': '侧边对话 · {chord}',
+} satisfies Record<string, string>
+
+/** The sidechat namespace key union. */
+export type SideChatKey = keyof typeof zh
+
+/** English dictionary, checked complete against the zh key set. */
+export const en = {
+  'title': 'Side chat',
+  'placeholder': 'Ask about this…',
+  'blank': 'A conversation of its own — nothing said here enters the one you are running.',
+  'close': 'Close',
+  'newChat': 'New chat',
+  'showInChat': 'Open in the Chat window',
+  'connecting': 'Preparing the conversation…',
+  'diving': 'Deep diving...',
+  'stopped': 'Stopped',
+  'anchor.selection': 'Selected text',
+  'status.idle': 'Enter to send',
+  'status.queue': 'Answering · this follows the current turn',
+  'status.steerHint': '⌘⏎ to cut in',
+  'excerpt.omitted': '{count} lines in the middle will not be included',
+  'excerpt.clipped': 'The quotation is long; its tail will not be included',
+  'failed': 'Not sent: {code}',
+  'toggle.label': 'Side chat',
+  'toggle.hint': 'Side chat · {chord}',
+} satisfies Record<SideChatKey, string>

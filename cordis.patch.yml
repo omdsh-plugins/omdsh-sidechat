@@ -1,0 +1,35 @@
+# The omdsh-sidechat bundle patch: one row, inserted over whatever the profile
+# already composed.
+#
+# This package is a PROFILE LAYER, not a harness edit. `dsh plugin --profile
+# web add @omdsh-plugins/omdsh-sidechat` installs it into the profile directory
+# and appends it to `dsh.profile.bundles`, so this file is applied after
+# `@deepseek-ai/dsh-base` and `@deepseek-ai/dsh-web-app` — the harness tree
+# stays exactly as it shipped, and removing the plugin removes the row with
+# it.
+#
+# The row is dual-face in shape and single-face in substance:
+#
+#   - node half (`lib/index.js`, loaded here) does NOTHING. It exists so this
+#     package becomes a Loader ENTRY, because that is the set
+#     `dsh-client-modules` scans for `dsh.client` declarations. Everything
+#     this plugin does happens in the browser;
+#   - browser half (`lib/client.js`) summons the input, resolves the anchor
+#     from the live DOM, and delivers one line through the session face the
+#     harness already publishes.
+#
+# There is nothing to fence and no route to serve: the anchor's excerpt comes
+# from the browser's own selection, not from a filesystem read, so this plugin
+# never gains a reach that the person driving the browser did not already
+# have. That is the whole reason it can be this small — compare
+# `omdsh-sidepanel`, which must open four endpoints and guard two fences to show
+# a file.
+#
+# `slots` and `sessions` are browser-plane services the web-app bundle already
+# composes; the loader resolves this row after them. On a surface with no
+# browser (the TUI, headless) the client half is never fetched and the node
+# half is a no-op, which is correct: there is nothing here to run.
+
+- insert:
+    - id: omdsh-sidechat
+      name: '@omdsh-plugins/omdsh-sidechat'

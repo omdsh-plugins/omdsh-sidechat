@@ -1,0 +1,312 @@
+/*
+ * The side conversation panel and the icon that summons it.
+ *
+ * The floating layer it sits on is click-through by contract, so the panel
+ * opts back into pointer events explicitly. There is deliberately NO backdrop:
+ * a scrim would cover the very thing the question is about, and the panel is
+ * not modal — you can go on selecting, scrolling and reading underneath it.
+ *
+ * Every colour, radius and font here is a harness alias variable. Nothing in
+ * this file decides what dsh looks like; it only arranges dsh's own material,
+ * which is why the panel follows the app's theme without knowing which theme
+ * is on.
+ */
+
+/* ── the header icon ────────────────────────────────────────────────────── */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.toggle:hover,
+.toggle:focus-visible {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/*
+ * The icon standing in for the utility row wherever that row is away — a blank
+ * conversation, or Code mode holding the column. Same corner, inset by the
+ * header's own measured padding (see header-anchor.ts) and the row's own
+ * height, so the icon does not move when the header comes back and takes it.
+ */
+.headerStrip {
+  position: fixed;
+  /*
+   * Above the standing panels a deployment may float here, and below the
+   * summoned box itself (60). A fixed box is its own stacking context and the
+   * tooltip bubble renders INSIDE it — the primitive positions bubbles off the
+   * anchor rect rather than portalling them out — so anything less would put
+   * the bubble under a neighbouring panel instead of over it.
+   */
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  /* Pointer events are off on the floating layer by contract. */
+  pointer-events: auto;
+}
+
+/* ── the panel ──────────────────────────────────────────────────────────── */
+
+.panel {
+  position: fixed;
+  z-index: 60; /* above omdsh-sidepanel's panels (30): this is summoned, they are furniture */
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 20%);
+  pointer-events: auto;
+}
+
+/*
+ * Also the drag handle. `move` rather than `grab` because the panel follows
+ * the pointer one-to-one, and `user-select: none` because a gesture that
+ * highlighted the title as it went would be a gesture fighting the browser.
+ */
+.head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.headBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.headBtn:hover:not(:disabled),
+.headBtn:focus-visible {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.headBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── the transcript ─────────────────────────────────────────────────────── */
+
+.scroll {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.blank {
+  margin: auto 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/*
+ * The person's own words, set apart by alignment and a fill rather than by a
+ * label — the same way the harness's own column distinguishes them.
+ */
+.ask {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.answer {
+  align-self: stretch;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.stopped {
+  display: block;
+  margin-top: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/*
+ * Everything between the question and the answer — reasoning, tool calls,
+ * results — is this one line.
+ *
+ * It wears the same brand-blue band the harness's own turn status wears, so
+ * "working" reads identically whether you are watching the conversation
+ * column or this panel: a pale sweep left to right over deepseek-500 text,
+ * held still when the reader has asked for less motion. The panel's own
+ * smaller scale stays; only the paint is borrowed.
+ */
+.diving {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  background: linear-gradient(
+    90deg,
+    var(--dsw-static-deepseek-500) 0%,
+    var(--dsw-static-deepseek-500) 40%,
+    var(--dsw-static-deepseek-200) 50%,
+    var(--dsw-static-deepseek-500) 60%,
+    var(--dsw-static-deepseek-500) 100%
+  );
+  background-position: 100% 0;
+  background-size: 250% 100%;
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: diving-shimmer 1.8s linear infinite;
+}
+
+@keyframes diving-shimmer {
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diving {
+    background-position: 0 0;
+    background-size: 100% 100%;
+    animation: none;
+  }
+}
+
+/* ── the composer ───────────────────────────────────────────────────────── */
+
+.foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+}
+
+.chip {
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--ds-font-family-code);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl; /* a long path is identified by its tail, so clip the front */
+  text-align: left;
+}
+
+.chipPlain {
+  font-family: inherit;
+  direction: ltr;
+}
+
+/*
+ * What the quotation will lose on the way out. Stated before the send rather
+ * than discovered after it.
+ */
+.note {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.draft {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  max-height: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  resize: none;
+}
+
+.draft:focus-visible {
+  outline: none;
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.draft::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 16px;
+}
+
+.hint {
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hint:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.error {
+  color: var(--dsw-alias-label-primary);
+}
