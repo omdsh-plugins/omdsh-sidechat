@@ -65,9 +65,15 @@ export function relativePath(path: string, cwd?: string): string {
   if (cwd === undefined || cwd === '') return clean
   const root = cwd.replace(/[/\\]+$/, '')
   if (!clean.startsWith(root)) return clean
-  const rest = clean.slice(root.length).replace(/^[/\\]+/, '')
+  const rest = clean.slice(root.length)
+  // A prefix is not a parent: `/w/proj` is a string prefix of `/w/project`, and
+  // slicing it off there yields `ect/src/a.ts` — a relative path that names
+  // nothing, which is exactly the outcome this function exists to avoid. Only a
+  // separator (or the end of the string) makes the prefix a directory boundary.
+  if (rest !== '' && rest[0] !== '/' && rest[0] !== '\\') return clean
+  const inside = rest.replace(/^[/\\]+/, '')
   // The path IS the working directory: naming it '' would read as "no path".
-  return rest === '' ? clean : rest
+  return inside === '' ? clean : inside
 }
 
 /** Whether a path is already rooted. */

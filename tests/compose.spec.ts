@@ -25,6 +25,14 @@ describe('relativePath', () => {
     expect(relativePath('/elsewhere/a.ts', '/w/proj')).toBe('/elsewhere/a.ts')
   })
 
+  it('leaves a sibling whose name merely starts with it absolute', () => {
+    // A string prefix is not a parent directory. Slicing one off here would
+    // produce `-server/src/a.ts`: a relative path that resolves to nothing,
+    // and one nobody reading the prompt would recognize as wrong.
+    expect(relativePath('/home/me/code/app-server/src/a.ts', '/home/me/code/app'))
+      .toBe('/home/me/code/app-server/src/a.ts')
+  })
+
   it('leaves the working directory itself alone rather than emptying it', () => {
     expect(relativePath('/w/proj', '/w/proj')).toBe('/w/proj')
   })

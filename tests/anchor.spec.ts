@@ -8,7 +8,7 @@
  * are — and a stub makes the quotation an input rather than a hope.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { AnchorRegistry, NO_ANCHOR, hasLocation } from '../src/client/anchor.ts'
+import { AnchorRegistry, NO_ANCHOR } from '../src/client/anchor.ts'
 import { keepSelection, selectionAnchor, selectionRect } from '../src/client/dom-anchor.ts'
 
 /** An all-zero box: what a caret in a hidden subtree reports in a real browser. */
@@ -203,13 +203,5 @@ describe('AnchorRegistry', () => {
 
   it('answers with no anchor when even the built-ins decline', () => {
     expect(new AnchorRegistry([]).resolve()).toBe(NO_ANCHOR)
-  })
-})
-
-describe('hasLocation', () => {
-  it('separates an anchor worth drawing from one that is not', () => {
-    expect(hasLocation(NO_ANCHOR)).toBe(false)
-    expect(hasLocation({ origin: 'element', path: 'src/a.ts' })).toBe(true)
-    expect(hasLocation({ origin: 'selection', excerpt: 'x' })).toBe(true)
   })
 })

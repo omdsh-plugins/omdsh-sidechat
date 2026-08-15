@@ -169,6 +169,12 @@ The syntax is **Electron's accelerator syntax** — what [`omdsh-shortcuts`](htt
 
 `null` hands the key back completely (a page handler racing a native menu for the same chord is the hardest class of bug to find); a rebinding takes effect immediately and releases the old chord in the same instant; a malformed accelerator throws rather than being ignored.
 
+### With a keybinding layer installed
+
+A composition that has one should have exactly **one** place where keys are decided, and two listeners racing for one chord is the failure that place exists to prevent. So when the `shortcut` service is there — [`omdsh-shortcuts`](https://github.com/omdsh-plugins/omdsh-shortcuts) publishes it — this plugin gives the key up (`setSummonChord(null)`, after which its own listener consumes nothing at all) and registers the summon as the command **`sidechat.open`** instead. The chord becomes a row in that plugin's document like every other, and the tooltip keeps teaching it: the binding is read back out of the switchboard on every revision, so a rebinding in the settings panel reaches the icon with no reload.
+
+**Without that plugin nothing here changes.** The handover runs on a restricted fiber started inside `apply`, never from a top-level `inject`: whether another plugin's service exists is a property of the profile, and a loader entry waiting on one nobody composed sits `pending` forever — which fails the boot audit and takes the whole page down, not just this feature. So a profile with no keybinding layer keeps the built-in ⌘L, and unloading one at runtime hands the chord straight back rather than leaving the panel with no key at all.
+
 ## No host half
 
 `src/index.ts` is an empty `apply()`.

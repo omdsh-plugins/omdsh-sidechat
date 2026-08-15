@@ -47,7 +47,14 @@
       "displayName": {
         "": "Side Chat",
         "zh": "侧边对话"
-      }
+      },
+      "summary": {
+        "": "Summon a conversation of its own anywhere, anchored to whatever you were looking at.",
+        "zh": "在任何位置召唤一条独立的对话，带上你正看着的东西作为锚点。"
+      },
+      "category": "input",
+      "docs": "https://github.com/omdsh-plugins/omdsh-sidechat#readme",
+      "order": 40
     }
   },
   "files": [

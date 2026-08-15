@@ -49,16 +49,6 @@ export type AnchorSource = () => Anchor | undefined
 export const NO_ANCHOR: Anchor = { origin: 'none' }
 
 /**
- * True when an anchor says anything at all. An `origin: 'none'` anchor with no
- * path is what the UI must not draw a chip for.
- * @param anchor - the resolved anchor.
- * @returns whether it carries a location or a quotation.
- */
-export function hasLocation(anchor: Anchor): boolean {
-  return anchor.path !== undefined || anchor.excerpt !== undefined
-}
-
-/**
  * The anchor-source roster and the resolution order over it.
  *
  * Later registrations are asked FIRST: a plugin that mounts after this one is
