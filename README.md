@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web GUI to open a **conversation of its own**, right where you are. It carries whatever you were looking at as its anchor, and both the question and the answer stay in its own session — the one you are actually running is not touched, context included.
+Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web GUI to open a **conversation of its own**, right where you are. It carries whatever you were looking at as its anchor, and both the question and the answer stay in its own session — the one you are actually running is not touched, context included. In Chat and Work modes the side conversation also **carries the context of the one you are running** by default: it is a fork of it, cut by the host's own `fork` verb, a copy — the original conversation is not touched by a word.
 
 ## What it adds
 
@@ -13,14 +13,14 @@ Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai
 | An icon in the session header's utility row | The `conversation.session.header.utilities` list slot at order `105`, inboard of omdsh-sidepanel's switches |
 | The same icon when that row is away | An understudy in `shell.overlay` at order `-8`, holding the corner in a blank conversation and in Code mode |
 | The `sidechat` service — `registerAnchorSource`, `summonChord`, `setSummonChord` | `ctx.reflect.provide` in the browser half; a panel that knows where it is can say so |
-| A side conversation in the `Chat` workspace | `IWorkspaces.connectWorkspace` and `ISession.prompt`, the faces the browser already holds — there is no host half |
+| A side conversation in the `Chat` workspace — or a fork branch of the current conversation | `ISessions.fork`, `IWorkspaces.connectWorkspace` and `ISession.prompt`, the faces the browser already holds — there is no host half |
 | The `sidechat.open` command | Registered with `omdsh-shortcuts` when its `shortcut` service is there, which is also where the icon's tooltip reads its chord |
 
 The harness has one input, at the bottom of the conversation column, and it belongs to the thing you are running. So every "wait, what does this function do?" costs you twice: your hands leave what you were reading, and **the question moves into that conversation's context**, where it stays — taking up window, shaping every turn after it.
 
 This plugin deletes both costs: **summon a conversation of your own, where you already are.**
 
-It is a full session — multi-turn, with history, stored in the `Chat` workspace, no different from any conversation you open from the sidebar. It just happens to be summoned from beside the line you were pointing at.
+It is a full session — multi-turn, with history, stored in the `Chat` workspace (as a fork in the source conversation's workspace when it embeds one), no different from any conversation you open from the sidebar. It just happens to be summoned from beside the line you were pointing at.
 
 ## What it shows
 
@@ -49,13 +49,23 @@ In **a session of its own**, in the host-managed `Chat` workspace — the one [`
 
 A deployment without the chat plugin has no such workspace; there it opens a second session in **the current conversation's workspace** instead. The two contexts stay apart either way — they just share a directory. This plugin does not quietly become a dependent of that one.
 
-**Remembered across reloads**: the side conversation in use is kept in localStorage. A remembered id is verified against the session list first — a conversation that was deleted is not an error, it is a conversation that ended.
+**When it embeds a context, it is a fork.** `sessions.fork` is the harness's own verb for "a conversation carrying this history" — the host-side live-session fork API, the same one the harness's conversation column uses. The child receives the source's full history as its seed, inherits its working directory, and carries the lineage in `parentSessionId`, so the sidebar **nests it under the source conversation**. This plugin copies nothing and writes nothing into the supervised conversation — a fork is a read-only branch.
+
+**Remembered across reloads**: the side conversation in use is kept in localStorage — the session id, the conversation it was forked from, and the embed preference, in one record (a bare id written by an older version is read as "no parent, preference on"). A remembered id is verified against the session list first — a conversation that was deleted is not an error, it is a conversation that ended.
 
 And **what was said in it comes back too**. The harness pulls a session's history for the session that is on stage, and this one deliberately never is — so the panel asks for its own window when it binds (`transcript-source.ts`). Without that step a remembered conversation returns live but blank: everything said after the reload, nothing said before it.
 
-## The three buttons in the header
+## The four buttons in the header
 
-**Open in the Chat window** — jump to this conversation in the main UI. It is an ordinary session in the `Chat` workspace already, so "opening" it is just navigation (`sessions.open`): no export, no copy, no second representation of the same messages. Go there to keep talking at length, or to see the full reasoning and tool calls — that is the workbench, this is the side. Disabled until a conversation is connected.
+**Embed context** — the branch icon, and the conversation's **state** in one control: it shows whether this side conversation currently carries another conversation's context, and it is the switch itself.
+
+- **Lit** (brand blue): this side conversation is a fork of the current conversation, and the context is right there in the window. Pressing it **detaches** — the embedded context leaves the window and a new conversation without it starts; the fork left behind stays in the list and can be reopened like any other.
+- **Dim**: this conversation is standalone. Pressing it **embeds** — a fork of the conversation being supervised starts as a new side conversation carrying its context.
+- **Greyed out in Code mode**: that column is a terminal, there is no "current conversation" to embed. The button is disabled and nothing is ever forked.
+
+Both directions land as **a new conversation**, because a conversation's context is its history — it can neither be grafted in afterwards nor removed in place. Chat and Work default to lit, Code stays grey; a deployment without `omdsh-base` has no mode system and is treated as Chat/Work.
+
+**Open in the Chat window** — jump to this conversation in the main UI. It is an ordinary session already (in the `Chat` workspace, or the source's workspace when it is a fork), so "opening" it is just navigation (`sessions.open`): no export, no copy, no second representation of the same messages. Go there to keep talking at length, or to see the full reasoning and tool calls — that is the workbench, this is the side. Disabled until a conversation is connected.
 
 **New chat** — below.
 
@@ -63,9 +73,9 @@ And **what was said in it comes back too**. The harness pulls a session's histor
 
 ## New chat
 
-The button in the panel header. It starts a fresh one; the previous conversation stays in the `Chat` workspace and can be reopened from the sidebar like any other.
+The button in the panel header. It starts a fresh one; the previous conversation stays where it was (the `Chat` workspace, or the workspace its fork lives in) and can be reopened from the sidebar like any other. **New chat obeys the embed preference**: on, it starts as a new fork of the current conversation; off, it is the blank conversation below.
 
-Underneath it is `connectWorkspace`, which **reuses the workspace's blank session** — so pressing it twice without saying anything leaves you in the same empty conversation rather than littering `Chat` with shells. Same rule the harness's own New Session follows.
+Underneath the standalone side is `connectWorkspace`, which **reuses the workspace's blank session** — so pressing it twice without saying anything leaves you in the same empty conversation rather than littering `Chat` with shells. Same rule the harness's own New Session follows. A fork has no such reuse: a branch is new by construction.
 
 ## Where the anchor comes from
 
@@ -91,7 +101,7 @@ ctx.sidechat.registerAnchorSource(() => ({ origin: 'element', path: currentFile 
 
 ## What it sends
 
-Exactly **one thing crosses** between the two conversations: the anchor, as text. `PromptContentPart` is `text` or `image`, so an anchor cannot travel as structure — it travels as the shape a person would have typed:
+Exactly **one thing crosses** between the two conversations: the anchor, as text. The context does not travel here — it travels as the fork: once the branch is cut, the source's entire history is the new conversation's own, and every question after that is an ordinary line on the branch. `PromptContentPart` is `text` or `image`, so an anchor cannot travel as structure — it travels as the shape a person would have typed:
 
 ````
 /w/proj/src/client/apply.ts:199-205
@@ -104,7 +114,7 @@ Exactly **one thing crosses** between the two conversations: the anchor, as text
 Why is this slot's scope session?
 ````
 
-**Note that it is absolute.** Two working directories are in play and they are usually not the same one: the anchor comes from the workspace you are looking at, the side conversation lives in `Chat`. So the path is rooted against **where it came from** and only then made relative to **where it is going** — relative when both are the same directory, absolute when they are not, neither case special-cased. An absolute path the receiver cannot shorten is the **correct** answer, not a degraded one: it is the only form that still names the right file.
+**Note that it is absolute.** Two working directories are in play and they are usually not the same one: the anchor comes from the workspace you are looking at, a standalone side conversation lives in `Chat`; a fork **inherits the source's working directory**, the two coincide, and the path naturally comes out relative. So the path is rooted against **where it came from** and only then made relative to **where it is going** — relative when both are the same directory, absolute when they are not, neither case special-cased. An absolute path the receiver cannot shorten is the **correct** answer, not a degraded one: it is the only form that still names the right file.
 
 **A quotation is clamped, never streamed.** Past 60 lines the middle goes, past 4096 bytes the tail goes, both say how much was dropped, and both say it **in the panel before you press Enter**.
 
@@ -150,7 +160,7 @@ That row is not always on screen, and both states where it is missing are ordina
 - **a blank conversation**, where the harness clears the entire header for the hero — so the very first thing you see would offer no way in;
 - **Code mode**, where `omdsh-code` shadows the whole `conversation` seat with a terminal, header and all. The chord is yielded to the terminal there as well, so without a stand-in the panel would be unreachable for as long as Code mode was on.
 
-So the same button has an **understudy** on the frame's floating layer, holding the corner the utility row occupies — the header's own measured padding, the row's own height — so the icon does not move when the header comes and goes. **The panel works identically in Chat, Work and Code, so its way in exists in all three.**
+So the same button has an **understudy** on the frame's floating layer, holding the corner the utility row occupies — the header's own measured padding, the row's own height — so the icon does not move when the header comes and goes. **The panel is there in Chat, Work and Code alike, with exactly one behavioural difference**: context embedding is on by default and switchable in Chat and Work, and off with the button greyed in Code — that column is a terminal, there is no conversation to embed. The way in exists in all three.
 
 The two never show at once, and what the understudy waits on is the header entry's own **mount report**, never a re-derivation of when the harness hides its header. That report is also the re-measure signal: the column keeps its exact geometry when Code mode takes it, so nothing about its box says the seat changed.
 
@@ -203,7 +213,7 @@ Until a chord is bound to `sidechat.open` there, the header icon is the way in �
 
 `src/index.ts` is an empty `apply()`.
 
-The panel asks through `ISession.prompt`, reads answers through `SessionFace` (which *is* an `ObservableSnapshot<ConversationSnapshot>`), and finds a home through `IWorkspaces.connectWorkspace` — all public faces the browser already holds. The anchor is built from the browser's own selection, with no filesystem read. So **there is no route to serve, no working directory to fence, and no reach for this plugin to acquire**.
+The panel asks through `ISession.prompt`, reads answers through `SessionFace` (which *is* an `ObservableSnapshot<ConversationSnapshot>`), and finds a home through `ISessions.fork` or `IWorkspaces.connectWorkspace` — all public faces the browser already holds. The mode comes from the `sessionModes` service `omdsh-base` publishes, reached by name on a restricted fiber and treated as "no mode system" when it is not there. The anchor is built from the browser's own selection, with no filesystem read. So **there is no route to serve, no working directory to fence, and no reach for this plugin to acquire**.
 
 The empty `apply()` exists to make this package a Loader entry, because that is the set `dsh-client-modules` scans for `dsh.client`.
 
@@ -231,7 +241,7 @@ dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
 
 It needs a **web surface**: the browser half is everything here, and its `inject` names only harness services (`slots`, `sessions`, `workspaces`, `locale`). On a surface with no browser — the TUI, headless — the client half is never fetched and the node half is a no-op, which is correct: there is nothing here to run.
 
-Every companion is optional and each absence is answered rather than fatal. With no `omdsh-justchat` there is no `Chat` workspace, so the side conversation opens in the current conversation's workspace instead; with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing all three boots and this plugin works.
+Every companion is optional and each absence is answered rather than fatal. With no `omdsh-justchat` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-base` there is no mode system, so embedding is treated as Chat/Work (always embeddable, on by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
 
 **It registers no settings namespace.** There is nothing here a form could draw — the one adjustable thing is the chord, and that is either the built-in default or a row in `omdsh-shortcuts`'s document — so the plugin hub lists this package and offers no controls, which is the honest rendering rather than an empty panel.
 
@@ -249,11 +259,12 @@ pnpm run harness:npm                            # back to the registry pin befor
 
 A `link:` path is an **argument, never a committed value** — it resolves against the manifest that declares it, so writing one down bakes a single machine's layout into the package, and it fails silently. `pnpm run check:harness-pin` catches that.
 
-The specs are deliberately kept runnable under the registry pin: every harness import in the pure-logic modules is `import type`, so a bare clone can `pnpm install && pnpm test`. `transcript.ts` takes the content classifier as a **parameter** rather than importing it for exactly that reason — that display rule is the thing in this package most worth checking.
+The specs are deliberately kept runnable under the registry pin: every harness import in the pure-logic modules is `import type`, so a bare clone can `pnpm install && pnpm test`. `transcript.ts` takes the content classifier as a **parameter** rather than importing it for exactly that reason — that display rule is the thing in this package most worth checking. The embed decision is a pure function the same way (`embed.ts`), with specs of its own.
 
 ## Known limitations
 
-- **It never touches the conversation you are running.** The whole plugin stands on that, so there is deliberately no way to send a question into the main session from here, and no way to pull its context into the side one.
+- **It never touches the conversation you are running.** A fork only reads the source's history; a question is never sent into the main session from here. And the reverse holds too: there is no way to send a question into the main session, only to cut a branch of its own.
+- **Embedding is a snapshot of the moment the branch was cut.** Once forked, nothing the source says afterwards flows in; to catch up, press the embed button again and cut a new branch.
 - **No reasoning and no tool calls.** They are dropped rather than collapsed. When you want them, the button in the header takes you to the workbench where they are all laid out.
 - **It reads no files.** The anchor is whatever the DOM already showed you; there is no `@` completion of its own, and no way to attach a file the page was not displaying.
 - **One anchor, one file.** A quotation spanning two files is two questions, and images are not accepted at all — that is a composer capability, and this is not a composer.
