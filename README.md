@@ -1,10 +1,20 @@
 # omdsh-sidechat
 
-[简体中文](README.zh.md)
+English | [中文](README.zh.md)
 
 Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web GUI to open a **conversation of its own**, right where you are. It carries whatever you were looking at as its anchor, and both the question and the answer stay in its own session — the one you are actually running is not touched, context included.
 
-## What it is
+## What it adds
+
+| Surface | Where it comes from |
+|---|---|
+| ⌘L anywhere in the app | A window listener this plugin owns, yielded inside text fields, inside any `data-omdsh-sidechat-yield` subtree, and to `omdsh-shortcuts` entirely when that plugin is composed |
+| A draggable panel that summons over the app | An entry in `shell.overlay` at order `100`, placed beside the selection and remembered across reloads in localStorage |
+| An icon in the session header's utility row | The `conversation.session.header.utilities` list slot at order `105`, inboard of omdsh-sidepanel's switches |
+| The same icon when that row is away | An understudy in `shell.overlay` at order `-8`, holding the corner in a blank conversation and in Code mode |
+| The `sidechat` service — `registerAnchorSource`, `summonChord`, `setSummonChord` | `ctx.reflect.provide` in the browser half; a panel that knows where it is can say so |
+| A side conversation in the `Chat` workspace | `IWorkspaces.connectWorkspace` and `ISession.prompt`, the faces the browser already holds — there is no host half |
+| The `sidechat.open` command | Registered with `omdsh-shortcuts` when its `shortcut` service is there, which is also where the icon's tooltip reads its chord |
 
 The harness has one input, at the bottom of the conversation column, and it belongs to the thing you are running. So every "wait, what does this function do?" costs you twice: your hands leave what you were reading, and **the question moves into that conversation's context**, where it stays — taking up window, shaping every turn after it.
 
@@ -71,6 +81,8 @@ Both attributes are optional and each absence is one step down. With none of the
 
 Those attributes are a **published convention**, the same shape `omdsh-sidepanel` uses when it reaches for `#root` and `[data-slot="conversation"]`: **a published anchor, not a class name and not a DOM shape**, where absence is a skip rather than an error. Making your own panel anchorable costs one attribute.
 
+Four attributes are published in all, and the other two are about who owns an event rather than where a line lives: `data-omdsh-sidechat-yield` marks a subtree that keeps the summon key for itself, and `data-omdsh-sidechat` marks this plugin's own overlay — which is what makes a selection inside the draft "the person re-reading what they typed" rather than a quotation of anything, and what makes the key toggle the panel shut instead of yielding to the textarea under the cursor.
+
 A panel that knows more than the DOM can express can say so directly:
 
 ```ts
@@ -109,7 +121,7 @@ A draft that is a single line starting with `/` **and carries no anchor** goes t
 
 Note that this column is about whether **the side conversation** is busy. Your main session being busy is precisely the situation this plugin exists for; it never reads as "the side chat is busy".
 
-A failed send **keeps the error code**. The question itself is already in the transcript, which is a better acknowledgement than any banner and one that is still readable a minute later.
+A failed send — a model that will not take the request, a session that has already closed — **keeps the error code**. The question itself is already in the transcript, which is a better acknowledgement than any banner and one that is still readable a minute later.
 
 ## Where it sits
 
@@ -118,7 +130,7 @@ A failed send **keeps the error code**. The question itself is already in the tr
 - **The first time**, it appears beside the selection: below it by default, flipped above when the bottom will not hold it, clamped into the viewport. With no selection, the upper third, centred.
 - **After that it never moves on its own.** Two things change its position: you drag it, or the window shrinks below it (then it is pulled back into view — otherwise the header goes off-screen and can never be dragged back). Summoning brings it back, it does not re-place it. The position is **remembered across reloads**, so "the first time" means the first time ever.
 - **Drag it by the header.** Pointer capture rather than window listeners, so the panel keeps up when the pointer outruns it and no text gets selected underneath the gesture. The buttons in that row are not a handle.
-- **No backdrop.** A scrim would cover the very thing you are asking about.
+- **No backdrop.** A scrim would cover the very thing you are asking about. The layer is pass-through by construction; the panel turning `pointer-events` back on for itself is the whole of what it needs.
 - **Clicking outside does not close it**, `Escape` does, and a successful send does **not** — the answer is about to arrive here.
 - **The anchor follows the selection; the panel does not.** With it open, drag a new selection and the chip updates while the window stays put. A window that slid around while you typed would be a window you had to chase.
 - **Dismissing does not clear the conversation.** Reopening returns you to it — which is what makes it a conversation. Starting over is New Chat's job, and it is a button precisely so that it is deliberate.
@@ -146,16 +158,26 @@ That corner is shared — omdsh-sidepanel's switches stand in there too, and omd
 
 ## That key
 
-The harness publishes **no keybinding registry** (`ui-commands` is the contract for slash commands, not keys), so this plugin installs its own window listener. The rules:
+**This is the no-keybinding-layer case.** With `omdsh-shortcuts` composed, everything below stands down and the key is that plugin's — see [Binding a different key](#binding-a-different-key).
+
+The harness publishes **no keybinding registry** (`ui-commands` is the contract for slash commands, not keys), so on its own this plugin installs its own window listener. The rules:
 
 - **it takes ⌘L and nothing else** (plus Escape, and only while open);
-- **it yields inside text**: an input, a textarea, a contenteditable, or any subtree flying `data-omdsh-sidechat-yield`. There the event is neither consumed nor prevented;
+- **it yields inside text**: an input, a textarea, a contenteditable, or any subtree flying `data-omdsh-sidechat-yield`. There the event is neither consumed nor `preventDefault`ed;
 - **it consumes nothing while closed**;
 - **inside its own panel it toggles**, or the yield rule would hand the key to the panel's own textarea.
 
-**⌘L is also the browser's address-bar shortcut** — a deliberate trade, and the rules above are what pay for it. `Ctrl+L` is clear-screen in a terminal, which is what the yield attribute is for.
+**⌘L is also the browser's address-bar shortcut** — a deliberate trade, and the rules above are what pay for it. `Ctrl+L` is clear-screen in a terminal: a terminal that flies `data-omdsh-sidechat-yield` takes the key back whole.
 
 ## Binding a different key
+
+**The answer for a person is [`omdsh-shortcuts`](https://github.com/omdsh-plugins/omdsh-shortcuts).** Install it beside this plugin and the summon becomes a row in its document like every other, rebindable from the settings panel with no code and no reload:
+
+```sh
+dsh plugin --profile web add @omdsh-plugins/omdsh-shortcuts
+```
+
+What that changes here is described below. The rest of this section is the plugin author's route — one service call, for a package that wants the chord for itself.
 
 `CmdOrCtrl+L` is the default:
 
@@ -173,6 +195,8 @@ The syntax is **Electron's accelerator syntax** — what [`omdsh-shortcuts`](htt
 
 A composition that has one should have exactly **one** place where keys are decided, and two listeners racing for one chord is the failure that place exists to prevent. So when the `shortcut` service is there — [`omdsh-shortcuts`](https://github.com/omdsh-plugins/omdsh-shortcuts) publishes it — this plugin gives the key up (`setSummonChord(null)`, after which its own listener consumes nothing at all) and registers the summon as the command **`sidechat.open`** instead. The chord becomes a row in that plugin's document like every other, and the tooltip keeps teaching it: the binding is read back out of the switchboard on every revision, so a rebinding in the settings panel reaches the icon with no reload.
 
+Until a chord is bound to `sidechat.open` there, the header icon is the way in — which is the honest state, not a broken one: the built-in ⌘L is gone precisely because the keys are somebody else's to decide now.
+
 **Without that plugin nothing here changes.** The handover runs on a restricted fiber started inside `apply`, never from a top-level `inject`: whether another plugin's service exists is a property of the profile, and a loader entry waiting on one nobody composed sits `pending` forever — which fails the boot audit and takes the whole page down, not just this feature. So a profile with no keybinding layer keeps the built-in ⌘L, and unloading one at runtime hands the chord straight back rather than leaving the panel with no key at all.
 
 ## No host half
@@ -183,19 +207,43 @@ The panel asks through `ISession.prompt`, reads answers through `SessionFace` (w
 
 The empty `apply()` exists to make this package a Loader entry, because that is the set `dsh-client-modules` scans for `dsh.client`.
 
-## What it does not do
+Runtime dependencies: **none**. Everything it draws with is a face the harness already published.
 
-Touch the conversation you are running (the whole plugin stands on this), show reasoning or tool calls, read files, build its own `@` completion, carry more than one anchor, or accept images (that is a composer capability).
+## Install
 
-Runtime dependencies: **none**.
+```sh
+dsh plugin --profile web add @omdsh-plugins/omdsh-sidechat
+```
 
-## Development
+Or from a checkout:
+
+```sh
+pnpm install && pnpm run build
+dsh plugin --profile web add "$PWD"
+dsh web --port <n>
+```
+
+Remove it the same way:
+
+```sh
+dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
+```
+
+It needs a **web surface**: the browser half is everything here, and its `inject` names only harness services (`slots`, `sessions`, `workspaces`, `locale`). On a surface with no browser — the TUI, headless — the client half is never fetched and the node half is a no-op, which is correct: there is nothing here to run.
+
+Every companion is optional and each absence is answered rather than fatal. With no `omdsh-justchat` there is no `Chat` workspace, so the side conversation opens in the current conversation's workspace instead; with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing all three boots and this plugin works.
+
+**It registers no settings namespace.** There is nothing here a form could draw — the one adjustable thing is the chord, and that is either the built-in default or a row in `omdsh-shortcuts`'s document — so the plugin hub lists this package and offers no controls, which is the honest rendering rather than an empty panel.
+
+## Commands
 
 ```sh
 pnpm install
 pnpm run harness:local ../../deepseek-harness   # build that checkout first
 pnpm run build
+pnpm run typecheck
 pnpm run test
+pnpm run check:harness-pin                      # fails while anything is linked
 pnpm run harness:npm                            # back to the registry pin before committing
 ```
 
@@ -203,9 +251,11 @@ A `link:` path is an **argument, never a committed value** — it resolves again
 
 The specs are deliberately kept runnable under the registry pin: every harness import in the pure-logic modules is `import type`, so a bare clone can `pnpm install && pnpm test`. `transcript.ts` takes the content classifier as a **parameter** rather than importing it for exactly that reason — that display rule is the thing in this package most worth checking.
 
-End to end:
+## Known limitations
 
-```sh
-dsh plugin --profile web add <path>
-dsh web --port <n>
-```
+- **It never touches the conversation you are running.** The whole plugin stands on that, so there is deliberately no way to send a question into the main session from here, and no way to pull its context into the side one.
+- **No reasoning and no tool calls.** They are dropped rather than collapsed. When you want them, the button in the header takes you to the workbench where they are all laid out.
+- **It reads no files.** The anchor is whatever the DOM already showed you; there is no `@` completion of its own, and no way to attach a file the page was not displaying.
+- **One anchor, one file.** A quotation spanning two files is two questions, and images are not accepted at all — that is a composer capability, and this is not a composer.
+- **The chord cannot be changed from a settings panel on its own.** Rebinding it means either installing `omdsh-shortcuts` or calling `setSummonChord` from another plugin; this package registers no settings namespace of its own.
+- **One panel per frame.** It is a single overlay entry with one remembered position and one remembered conversation, so there is no second side chat to put beside the first.

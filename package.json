@@ -1,6 +1,6 @@
 {
   "name": "@omdsh-plugins/omdsh-sidechat",
-  "description": "Ask from wherever you are in the DeepSeek Harness web GUI: a summoned input that carries what you were looking at as its anchor and delivers one line into the current conversation",
+  "description": "Summon a conversation of its own anywhere in the DeepSeek Harness web GUI: a side panel anchored to whatever you were looking at, asking in its own session so the conversation you are running is untouched",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",

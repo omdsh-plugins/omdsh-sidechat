@@ -1,10 +1,20 @@
 # omdsh-sidechat
 
-[English](README.md)
+[English](README.md) | 中文
 
 在 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 网页界面的**任何位置**按 ⌘L，就地开一条**独立的对话**。它带上你正看着的东西作为锚点，问的话和得到的回答都留在它自己的 session 里——你正在跑的那一条，上下文一个字都不会被动。
 
-## 它是什么
+## 它提供什么
+
+| 界面 | 从哪来 |
+|---|---|
+| 在任何位置生效的 ⌘L | 本插件自己在 window 上装的监听器；在文本框里、在任何挂了 `data-omdsh-sidechat-yield` 的子树里让位，装了 `omdsh-shortcuts` 时整个交出去 |
+| 一块可拖动、召唤到应用之上的面板 | `shell.overlay` 上 order `100` 的条目：落在选区旁边，位置写进 localStorage 跨刷新记住 |
+| 会话标题栏工具位上的一个图标 | `conversation.session.header.utilities` 这个 list 座位，order `105`，排在 omdsh-sidepanel 两个开关的里侧 |
+| 那一排不在时的同一个图标 | `shell.overlay` 上 order `-8` 的替身，在空白会话和 Code 模式下占住那个角落 |
+| `sidechat` 服务——`registerAnchorSource`、`summonChord`、`setSummonChord` | 浏览器侧的 `ctx.reflect.provide`；知道自己在哪的面板可以直接说出来 |
+| `Chat` 工作区里的一条侧边会话 | `IWorkspaces.connectWorkspace` 和 `ISession.prompt`，都是浏览器本来就握着的面——没有宿主侧 |
+| `sidechat.open` 命令 | `shortcut` 服务在场时注册给 `omdsh-shortcuts`，图标的 tooltip 也从那里读回当前绑定 |
 
 harness 的输入框只有一个，在对话列底部，而它属于你正在进行的那件事。于是每次"这个函数到底在干嘛"，你都要付两次代价：把手从正在看的地方挪开滚回去，以及**把这个问题塞进那条对话的上下文里**——它会一直待在那儿，占着窗口，影响后面每一轮。
 
@@ -70,6 +80,8 @@ harness 自己的对话列是一个**工作台**：推理、工具调用、结�
 两个属性都是可选的，缺一个降一级。全都没有时锚点为空——面板照样召唤，照样问得出去，只是不带位置。
 
 这两个属性是**公开约定**，和 omdsh-sidepanel 伸手去够 `#root` 和 `[data-slot="conversation"]` 是同一种做法：**是发布出来的锚点，不是类名、也不是 DOM 形状**；不在就跳过，不是错误。想让自己的面板可锚定，加一个属性就完了。
+
+公开的属性一共四个，另外两个管的是"这个事件归谁"而不是"这一行在哪"：`data-omdsh-sidechat-yield` 标记一棵自己收着召唤键的子树，`data-omdsh-sidechat` 标记本插件自己的浮层——正是它让"在草稿框里选中的文字"被读成"这个人在重读自己写的东西"而不是一段引用，也正是它让召唤键在面板内部变成关闭，而不是让位给光标底下那个 textarea。
 
 面板如果知道得比 DOM 能表达的更多，还可以直接说：
 
@@ -146,7 +158,9 @@ ctx.sidechat.registerAnchorSource(() => ({ origin: 'element', path: currentFile 
 
 ## 那个键
 
-harness **没有键位注册中心**（`ui-commands` 是斜杠命令的契约，不是 keybinding），所以这个插件在 window 上自己装了一个监听器。规矩：
+**这一节说的是"没装键位层"的情形。** 装了 `omdsh-shortcuts` 之后，下面这些全部让位，键归那个插件——见[换一个键](#换一个键)。
+
+harness **没有键位注册中心**（`ui-commands` 是斜杠命令的契约，不是 keybinding），所以单独跑的时候，这个插件在 window 上自己装了一个监听器。规矩：
 
 - **只拿 ⌘L**（外加 Escape，且只在面板开着时）；
 - **在文本里让位**：input、textarea、contenteditable，以及任何挂了 `data-omdsh-sidechat-yield` 的子树。在那里面事件既不消费也不 `preventDefault`；
@@ -156,6 +170,14 @@ harness **没有键位注册中心**（`ui-commands` 是斜杠命令的契约，
 **⌘L 同时是浏览器的地址栏快捷键**，这是有意的取舍，上面几条正是代价补偿。`Ctrl+L` 在终端里是清屏——终端挂上 `data-omdsh-sidechat-yield` 就把这个键完整收回去。
 
 ## 换一个键
+
+**对使用者来说，答案是 [`omdsh-shortcuts`](https://github.com/omdsh-plugins/omdsh-shortcuts)。** 把它装在这个插件旁边，召唤就变成它那份文档里普普通通的一行，在设置面板里改绑，不写代码也不用刷新：
+
+```sh
+dsh plugin --profile web add @omdsh-plugins/omdsh-shortcuts
+```
+
+装上之后这边会发生什么，写在下一小节。本节剩下的部分是给插件作者的路子——一次服务调用，给那些想把这个键收走的包。
 
 `CmdOrCtrl+L` 只是默认值：
 
@@ -173,6 +195,8 @@ ctx.sidechat.setSummonChord(null)                   // 交出这个键
 
 有键位层的组合里，键该由**一个**地方决定，而两个监听器抢同一个键正是那个地方存在的理由。所以只要 `shortcut` 服务在场（由 [`omdsh-shortcuts`](https://github.com/omdsh-plugins/omdsh-shortcuts) 发布），这个插件就把键交出去——`setSummonChord(null)`，此后它自己的监听器一个事件都不消费——改为注册一条命令 **`sidechat.open`**。快捷键于是变成那边文档里普普通通的一行，而 tooltip 照样教这个键：绑定是从那边的总机里读回来的，每次改版都读一遍，所以在设置面板里改绑，不刷新也能落到图标上。
 
+在那边还没有给 `sidechat.open` 绑上键之前，入口就是标题栏那个图标——这是诚实的状态，不是坏掉的状态：内置的 ⌘L 之所以消失，正是因为键位现在归别人决定了。
+
 **没装那个插件，这里什么都不变。** 这次交接跑在 `apply` 里起的受限 fiber 上，绝不写进顶层 `inject`：别的插件有没有提供某个服务，是**组合**的属性；而一个 loader entry 等一个没人组合的服务会永远停在 `pending`——那会让启动自检失败、整页跟着挂掉，而不只是少一个功能。所以没有键位层的组合保留内置的 ⌘L，运行时把键位层卸掉也会把这个键还回来，而不是让面板落得一个键都没有。
 
 ## 没有宿主侧
@@ -183,19 +207,43 @@ ctx.sidechat.setSummonChord(null)                   // 交出这个键
 
 空 `apply()` 存在的唯一理由是让这个包成为 Loader entry，那才是 `dsh-client-modules` 扫描 `dsh.client` 的集合。
 
-## 它不做的事
+运行时依赖：**零**。它画界面用的每一样东西，都是 harness 已经发布出来的面。
 
-不碰你正在进行的那条对话（这是整个插件的立足点）、不显示推理与工具调用、不读文件、不自己造 `@` 补全、一次只带一个锚点、不接受图片（那是 composer 的能力）。
+## 安装
 
-运行时依赖：**零**。
+```sh
+dsh plugin --profile web add @omdsh-plugins/omdsh-sidechat
+```
 
-## 开发
+或者从 checkout 装：
+
+```sh
+pnpm install && pnpm run build
+dsh plugin --profile web add "$PWD"
+dsh web --port <n>
+```
+
+卸载是同一条路：
+
+```sh
+dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
+```
+
+它需要一个**有浏览器的界面**：这里的一切都在浏览器侧，而那一侧的 `inject` 只写 harness 自己的服务（`slots`、`sessions`、`workspaces`、`locale`）。在没有浏览器的界面上——TUI、headless——客户端那一半根本不会被取，宿主那一半是空的，这是对的：这里没有东西要跑。
+
+每一个伴生插件都是可选的，缺谁都有答案，不会致命。没有 `omdsh-justchat` 就没有 `Chat` 工作区，侧边对话改在当前会话所在的工作区里开；没有 `omdsh-shortcuts` 就保留内置的 ⌘L；没有 `omdsh-sidepanel`，标题栏那个角落只是空一点。它们都不出现在顶层 `inject` 里，所以三个全没装的 profile 照样能起来，这个插件也照样能用。
+
+**它不注册任何设置命名空间。** 这里没有一样东西是表单画得出来的——唯一可调的是那个键，而它要么是内置默认值，要么是 `omdsh-shortcuts` 文档里的一行——所以插件面板会列出这个包，但不提供任何控件，这比摆一个空表单诚实。
+
+## 命令
 
 ```sh
 pnpm install
 pnpm run harness:local ../../deepseek-harness   # 先在那边 pnpm run build
 pnpm run build
+pnpm run typecheck
 pnpm run test
+pnpm run check:harness-pin                      # 只要还链着就报错
 pnpm run harness:npm                            # 提交前切回 registry pin
 ```
 
@@ -203,9 +251,11 @@ pnpm run harness:npm                            # 提交前切回 registry pin
 
 规格刻意保持在 registry pin 下也能跑：纯逻辑那几个模块对 harness 的 import 全是 `import type`，所以裸 clone `pnpm install && pnpm test` 就行。`transcript.ts` 把内容分类器作为**参数**接收而不是 import，正是为了守住这一条——那条显示规则是这个包里最值得被检验的东西。
 
-端到端：
+## 已知限制
 
-```sh
-dsh plugin --profile web add <path>
-dsh web --port <n>
-```
+- **它永远不碰你正在跑的那条对话。** 整个插件立在这一点上，所以这里既没有办法把问题发进主会话，也没有办法把主会话的上下文拉过来。
+- **不显示推理，也不显示工具调用。** 是丢掉而不是折叠。想看的时候，标题栏那个按钮会把你带到摊开这一切的工作台上。
+- **它不读文件。** 锚点只是页面已经显示给你的东西；这里没有自己的 `@` 补全，也没法附上页面没在显示的文件。
+- **一次一个锚点，一个文件。** 横跨两个文件的引用就是两个问题；图片则完全不收——那是 composer 的能力，而这里不是 composer。
+- **单靠它自己，这个键改不了。** 想改绑，要么装 `omdsh-shortcuts`，要么从别的插件里调 `setSummonChord`；这个包自己不注册任何设置命名空间。
+- **一个 frame 只有一块面板。** 它是单个浮层条目，只记一个位置、一条对话，所以没有第二块侧边对话可以并排摆着。
