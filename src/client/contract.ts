@@ -130,8 +130,8 @@ export interface SideChatInjected {
   /** Summon the panel — the header icon's whole job. */
   open: () => void
   /**
-   * Start a fresh side conversation, leaving the previous one in the Chat
-   * workspace where it can be reopened like any other.
+   * Start a fresh side conversation. The previous one stays hidden where it
+   * was; a saved one keeps its sidebar row and can be reopened like any other.
    */
   newChat: () => void
   /**
@@ -149,6 +149,16 @@ export interface SideChatInjected {
    * conversation in the Chat workspace, and dismiss the panel.
    */
   showInChat: () => void
+  /**
+   * Save the side conversation into the sidebar, under its workspace.
+   *
+   * Until this runs the conversation is hidden from the sidebar. Saving cuts a
+   * fork of it that is not hidden, and the panel goes on talking into that
+   * fork; failures are reported through the panel state. No-op while the
+   * conversation is still blank or mid-answer (the button is disabled then),
+   * and once it is already saved.
+   */
+  save: () => void
   /** Dismiss the panel. */
   close: () => void
   /** Drop the failure line — the next attempt is starting. */

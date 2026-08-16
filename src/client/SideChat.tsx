@@ -20,7 +20,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import {
-  IconBranchOutline16, IconCloseOutline16, IconNewChatOutline16, IconRightUpOutline16,
+  IconBranchOutline16, IconCheckOutline16, IconCloseOutline16, IconDownloadOutline16,
+  IconNewChatOutline16, IconRightUpOutline16,
   MarkdownText, MessageText, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toAssistantBlocks } from '@deepseek-ai/dsh-client-runtime/client'
@@ -40,7 +41,7 @@ import css from './SideChat.module.css'
  */
 export function SideChat({
   useSideChat, useSessions, useTranscript,
-  submit, retarget, moveTo, newChat, toggleEmbed, showInChat, close, clearNotice, t,
+  submit, retarget, moveTo, newChat, toggleEmbed, showInChat, save, close, clearNotice, t,
 }: SideChatProps) {
   const open = useSideChat(state => state.open)
   const anchor = useSideChat(state => state.anchor)
@@ -50,12 +51,17 @@ export function SideChat({
   const embedOn = useSideChat(state => state.embedOn)
   const embedParent = useSideChat(state => state.embedParent)
   const embeddable = useSideChat(state => state.embeddable)
+  const saved = useSideChat(state => state.saved)
 
   // Primitive selections on purpose: a selector returning a fresh object would
   // re-render this tree on every streaming update of the session list.
   const sourceCwd = useSessions(state => (state.current === undefined ? undefined : state.byId[state.current]?.cwd))
   const targetCwd = useSessions(state => (sessionId === undefined ? undefined : state.byId[sessionId as never]?.cwd))
   const running = useSessions(state => (sessionId === undefined ? false : state.byId[sessionId as never]?.running === true))
+  // Blank means no turn has run: there is nothing to save, and saving then
+  // would put a blank session in the workspace account for New Session to
+  // reuse. Unknown ids read blank, which is also unsaveable.
+  const blank = useSessions(state => (sessionId === undefined ? true : state.byId[sessionId as never]?.blank !== false))
   const parentTitle = useSessions(state => (
     embedParent === undefined ? undefined : state.byId[embedParent as never]?.title
   ))
@@ -155,6 +161,17 @@ export function SideChat({
     : embedOn
       ? (parentTitle === undefined ? t('embed.onUntitled') : t('embed.on', { title: parentTitle }))
       : t('embed.off')
+
+  // What the save control explains, and why it can refuse: it saves a hidden
+  // conversation into the sidebar, and a refusal is always the answer still
+  // moving or nothing said yet.
+  const saveTip = saved
+    ? t('save.doneHint')
+    : running
+      ? t('save.runningHint')
+      : blank
+        ? t('save.blankHint')
+        : t('save.hint')
 
   if (!open || position === undefined) return null
 
@@ -260,12 +277,34 @@ export function SideChat({
         <div className={css.status}>
           <span className={notice === undefined ? css.hint : `${css.hint} ${css.error}`}>
             {notice !== undefined
-              ? (notice.code === 'embed-failed' ? t('embed.failed') : t('failed', { code: notice.code }))
+              ? (notice.code === 'embed-failed'
+                ? t('embed.failed')
+                : notice.code === 'save-failed'
+                  ? t('save.failed')
+                  : t('failed', { code: notice.code }))
               : sessionId === undefined
                 ? t('connecting')
                 : running ? t('status.queue') : t('status.idle')}
           </span>
           {running && notice === undefined && <span className={css.hint}>{t('status.steerHint')}</span>}
+          {/*
+            The corner of the panel, and the one control that is not about
+            asking: the conversation stays out of the sidebar until this is
+            pressed, and its done state is the answer.
+          */}
+          <Tooltip label={saveTip} side="top" delayMs={500}>
+            <button
+              type="button"
+              className={saved ? `${css.saveBtn} ${css.saveBtnDone}` : css.saveBtn}
+              onClick={save}
+              disabled={sessionId === undefined || saved || blank || running}
+              aria-pressed={saved}
+              aria-label={t('save.label')}
+            >
+              {saved ? <IconCheckOutline16 /> : <IconDownloadOutline16 />}
+              <span>{saved ? t('save.done') : t('save.label')}</span>
+            </button>
+          </Tooltip>
         </div>
       </footer>
     </section>

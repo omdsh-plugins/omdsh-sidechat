@@ -5,9 +5,11 @@
  * The pure decision function is the whole policy — when a new side
  * conversation is a fork of the one being supervised — checked without a
  * browser, the same discipline `transcript.ts` applies to the display rule.
- * The Sidecar cases then check the two things the decision cannot: that the
- * fork verb is what actually creates the session, and that a failed fork
- * falls back to the plain connect rather than failing the summon.
+ * The Sidecar cases then check the things the decision cannot: that the fork
+ * verb is what actually creates the conversation, that a failed fork falls
+ * back to the plain connect rather than failing the summon, that every fresh
+ * conversation is hidden from the sidebar, and that Save is the fork which
+ * puts one there.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ISessions, IWorkspaces } from '@deepseek-ai/dsh-client-runtime/client'
@@ -22,18 +24,25 @@ function row(blank = false): { blank: boolean } {
 /** The two services the sidecar reaches, over fixed answers. */
 function deps(overrides: {
   current?: string
-  byId?: Record<string, { blank: boolean }>
+  byId?: Record<string, { blank: boolean; running?: boolean }> | (() => Record<string, { blank: boolean; running?: boolean }>)
   mode?: () => string | undefined
   fork?: (opts: { sessionId: string }) => Promise<string>
-  connectWorkspace?: (id: string) => Promise<string>
+  createSession?: (opts: { workspaceId: string }) => Promise<string>
+  archiveSession?: (sessionId: string) => Promise<boolean>
   items?: readonly { workspaceId: string; title: string; sessionIds: readonly string[] }[]
   onEmbedFallback?: SidecarDeps['onEmbedFallback']
+  onSaveFailed?: SidecarDeps['onSaveFailed']
 } = {}) {
   const fork = overrides.fork ?? vi.fn(async ({ sessionId }: { sessionId: string }) => `child-of-${sessionId}`)
-  const connectWorkspace = overrides.connectWorkspace ?? vi.fn(async (id: string) => `blank-${id}`)
+  const createSession = overrides.createSession ?? vi.fn(async ({ workspaceId }: { workspaceId: string }) => `blank-${workspaceId}`)
+  const archiveSession = overrides.archiveSession ?? vi.fn(async () => true)
+  const byId = overrides.byId ?? {}
   const sessions = {
     list: {
-      getSnapshot: () => ({ current: overrides.current, byId: overrides.byId ?? {} }),
+      getSnapshot: () => ({
+        current: overrides.current,
+        byId: typeof byId === 'function' ? byId() : byId,
+      }),
     },
     fork,
   } as unknown as ISessions
@@ -43,16 +52,19 @@ function deps(overrides: {
         items: overrides.items ?? [{ workspaceId: 'chat-ws', title: 'Chat', sessionIds: [] }],
       }),
     },
-    connectWorkspace,
   } as unknown as IWorkspaces
   return {
     fork,
-    connectWorkspace,
+    createSession,
+    archiveSession,
     deps: {
       sessions,
       workspaces,
       mode: overrides.mode ?? (() => 'work'),
+      createSession,
+      archiveSession,
       ...(overrides.onEmbedFallback === undefined ? {} : { onEmbedFallback: overrides.onEmbedFallback }),
+      ...(overrides.onSaveFailed === undefined ? {} : { onSaveFailed: overrides.onSaveFailed }),
     } as SidecarDeps,
   }
 }
@@ -73,7 +85,7 @@ beforeEach(() => {
 describe('shouldEmbed', () => {
   const on = { mode: 'work', preferEmbedded: true, current: 'main', currentBlank: false } as const
 
-  it('embeds a real conversation in Chat and Work, and with no mode system at all', () => {
+  it('embeds a real conversation in Chat and Work, and with no mode system at all, once the preference is on', () => {
     expect(shouldEmbed(on)).toBe(true)
     expect(shouldEmbed({ ...on, mode: 'chat' })).toBe(true)
     expect(shouldEmbed({ ...on, mode: undefined })).toBe(true)
@@ -83,7 +95,7 @@ describe('shouldEmbed', () => {
     expect(shouldEmbed({ ...on, mode: 'code' })).toBe(false)
   })
 
-  it('declines when the preference is off', () => {
+  it('declines when the preference is off — the default', () => {
     expect(shouldEmbed({ ...on, preferEmbedded: false })).toBe(false)
   })
 
@@ -115,14 +127,19 @@ describe('loadRemembered', () => {
     expect(loadRemembered()).toBeUndefined()
   })
 
-  it('reads a pre-embed record — a bare id — as preference on, no parent', () => {
+  it('reads a pre-embed record — a bare id — as preference off, saved', () => {
     localStorage.setItem(STORAGE_KEY, 'some-session')
-    expect(loadRemembered()).toEqual({ sessionId: 'some-session', embed: true })
+    expect(loadRemembered()).toEqual({ sessionId: 'some-session', embed: false, saved: true })
   })
 
   it('round-trips the full record', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', parent: 'main', embed: false }))
-    expect(loadRemembered()).toEqual({ sessionId: 'side', parent: 'main', embed: false })
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', parent: 'main', embed: false, saved: false }))
+    expect(loadRemembered()).toEqual({ sessionId: 'side', parent: 'main', embed: false, saved: false })
+  })
+
+  it('reads a pre-save record without the saved flag as saved', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', embed: false }))
+    expect(loadRemembered()).toEqual({ sessionId: 'side', embed: false, saved: true })
   })
 
   it('treats an unparsable record as a first visit', () => {
@@ -132,20 +149,22 @@ describe('loadRemembered', () => {
 })
 
 describe('Sidecar', () => {
-  it('connects as a fork of the supervised conversation by default', async () => {
-    const { fork, connectWorkspace, deps: d } = deps({ current: 'main', byId: { main: row(false) } })
+  it('connects a plain hidden session by default, even with a real conversation to embed', async () => {
+    const { fork, createSession, archiveSession, deps: d } = deps({ current: 'main', byId: { main: row(false) } })
     const sidecar = new Sidecar(d)
 
     const id = await sidecar.ensure()
 
-    expect(id).toBe('child-of-main')
-    expect(fork).toHaveBeenCalledWith({ sessionId: 'main' })
-    expect(connectWorkspace).not.toHaveBeenCalled()
-    expect(sidecar.parent()).toBe('main')
+    expect(id).toBe('blank-chat-ws')
+    expect(fork).not.toHaveBeenCalled()
+    expect(createSession).toHaveBeenCalledWith({ workspaceId: 'chat-ws' })
+    expect(archiveSession).toHaveBeenCalledWith('blank-chat-ws')
+    expect(sidecar.parent()).toBeUndefined()
+    expect(sidecar.saved()).toBe(false)
   })
 
-  it('connects a plain session in Code mode', async () => {
-    const { fork, connectWorkspace, deps: d } = deps({
+  it('connects a plain hidden session in Code mode', async () => {
+    const { fork, createSession, deps: d } = deps({
       current: 'main', byId: { main: row(false) }, mode: () => 'code',
     })
     const sidecar = new Sidecar(d)
@@ -154,11 +173,11 @@ describe('Sidecar', () => {
 
     expect(id).toBe('blank-chat-ws')
     expect(fork).not.toHaveBeenCalled()
-    expect(connectWorkspace).toHaveBeenCalledWith('chat-ws')
+    expect(createSession).toHaveBeenCalledWith({ workspaceId: 'chat-ws' })
     expect(sidecar.parent()).toBeUndefined()
   })
 
-  it('skips the fork for a blank supervised conversation', async () => {
+  it('connects a plain session for a blank supervised conversation', async () => {
     const { fork, deps: d } = deps({ current: 'main', byId: { main: row(true) } })
     const sidecar = new Sidecar(d)
 
@@ -168,9 +187,31 @@ describe('Sidecar', () => {
     expect(sidecar.parent()).toBeUndefined()
   })
 
+  it('reuses its own still-blank conversation instead of creating another', async () => {
+    let byId: Record<string, { blank: boolean }> = {}
+    const { createSession, deps: d } = deps({ byId: () => byId })
+    const sidecar = new Sidecar(d)
+    await sidecar.ensure()
+
+    byId = { 'blank-chat-ws': row(true) }
+    await sidecar.fresh()
+
+    expect(sidecar.current()).toBe('blank-chat-ws')
+    expect(createSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads a hide the host refused as already saved', async () => {
+    const { deps: d } = deps({ archiveSession: vi.fn(async () => false) })
+    const sidecar = new Sidecar(d)
+
+    await sidecar.ensure()
+
+    expect(sidecar.saved()).toBe(true)
+  })
+
   it('falls back to a plain session and reports when the fork fails', async () => {
     const onEmbedFallback = vi.fn()
-    const { connectWorkspace, deps: d } = deps({
+    const { createSession, deps: d } = deps({
       current: 'main',
       byId: { main: row(false) },
       fork: vi.fn(async () => { throw new Error('host refused') }),
@@ -178,36 +219,49 @@ describe('Sidecar', () => {
     })
     const sidecar = new Sidecar(d)
 
-    const id = await sidecar.ensure()
+    // The preference is off by default; turning it ON is what asks for a fork.
+    const id = await sidecar.toggleEmbedded()
 
     expect(id).toBe('blank-chat-ws')
-    expect(connectWorkspace).toHaveBeenCalledWith('chat-ws')
+    expect(createSession).toHaveBeenCalledWith({ workspaceId: 'chat-ws' })
     expect(onEmbedFallback).toHaveBeenCalledWith({ code: 'embed-failed', message: expect.any(String) })
     expect(sidecar.parent()).toBeUndefined()
   })
 
+  it('hides an embedded fork like any fresh conversation', async () => {
+    const { fork, archiveSession, deps: d } = deps({ current: 'main', byId: { main: row(false) } })
+    const sidecar = new Sidecar(d)
+
+    await sidecar.toggleEmbedded()
+
+    expect(fork).toHaveBeenCalledWith({ sessionId: 'main' })
+    expect(archiveSession).toHaveBeenCalledWith('child-of-main')
+    expect(sidecar.saved()).toBe(false)
+  })
+
   it('toggles the preference and starts over under it', async () => {
-    const { fork, connectWorkspace, deps: d } = deps({ current: 'main', byId: { main: row(false) } })
+    const { fork, createSession, deps: d } = deps({ current: 'main', byId: { main: row(false) } })
     const sidecar = new Sidecar(d)
     await sidecar.ensure()
+    expect(sidecar.parent()).toBeUndefined()
+    expect(createSession).toHaveBeenCalledWith({ workspaceId: 'chat-ws' })
+
+    // ON: a fresh fork of the conversation still being supervised.
+    await sidecar.toggleEmbedded()
+    expect(sidecar.prefersEmbedded()).toBe(true)
+    expect(sidecar.current()).toBe('child-of-main')
     expect(sidecar.parent()).toBe('main')
+    expect(fork).toHaveBeenCalledTimes(1)
 
     // OFF: the embedded context leaves the window — a plain new session.
     await sidecar.toggleEmbedded()
     expect(sidecar.prefersEmbedded()).toBe(false)
     expect(sidecar.parent()).toBeUndefined()
-    expect(connectWorkspace).toHaveBeenCalledWith('chat-ws')
-
-    // ON again: a fresh fork of the conversation still being supervised.
-    await sidecar.toggleEmbedded()
-    expect(sidecar.prefersEmbedded()).toBe(true)
-    expect(sidecar.current()).toBe('child-of-main')
-    expect(sidecar.parent()).toBe('main')
-    expect(fork).toHaveBeenCalledTimes(2)
+    expect(createSession).toHaveBeenCalledTimes(2)
   })
 
-  it('adopts the remembered conversation, its parent and its preference', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'remembered', parent: 'main', embed: false }))
+  it('adopts the remembered conversation, its parent, its preference and its saved state', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'remembered', parent: 'main', embed: false, saved: true }))
     const { deps: d } = deps({ byId: { remembered: row(false) } })
     const sidecar = new Sidecar(d)
 
@@ -216,5 +270,81 @@ describe('Sidecar', () => {
     expect(sidecar.current()).toBe('remembered')
     expect(sidecar.parent()).toBe('main')
     expect(sidecar.prefersEmbedded()).toBe(false)
+    expect(sidecar.saved()).toBe(true)
+  })
+
+  it('saves the conversation by forking it into the sidebar and talking on', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', embed: false, saved: false }))
+    const { fork, deps: d } = deps({ byId: { side: row(false) } })
+    const sidecar = new Sidecar(d)
+    sidecar.restore()
+
+    const id = await sidecar.save()
+
+    expect(id).toBe('child-of-side')
+    expect(fork).toHaveBeenCalledWith({ sessionId: 'side' })
+    expect(sidecar.current()).toBe('child-of-side')
+    expect(sidecar.saved()).toBe(true)
+  })
+
+  it('keeps the embed lineage on the saved branch', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', parent: 'main', embed: true, saved: false }))
+    const { deps: d } = deps({ byId: { side: row(false) } })
+    const sidecar = new Sidecar(d)
+    sidecar.restore()
+
+    await sidecar.save()
+
+    expect(sidecar.parent()).toBe('main')
+    expect(sidecar.prefersEmbedded()).toBe(true)
+  })
+
+  it('save is a no-op once the conversation is already saved', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', embed: false, saved: true }))
+    const { fork, deps: d } = deps({ byId: { side: row(false) } })
+    const sidecar = new Sidecar(d)
+    sidecar.restore()
+
+    const id = await sidecar.save()
+
+    expect(id).toBe('side')
+    expect(fork).not.toHaveBeenCalled()
+  })
+
+  it('save refuses a blank conversation and one that is running', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', embed: false, saved: false }))
+    const { fork, deps: d } = deps({ byId: { side: { blank: true } } })
+    const sidecar = new Sidecar(d)
+    sidecar.restore()
+
+    expect(await sidecar.save()).toBeUndefined()
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', embed: false, saved: false }))
+    const busy = deps({ byId: { side: { blank: false, running: true } } })
+    const other = new Sidecar(busy.deps)
+    other.restore()
+
+    expect(await other.save()).toBeUndefined()
+    expect(fork).not.toHaveBeenCalled()
+    expect(busy.fork).not.toHaveBeenCalled()
+  })
+
+  it('reports a save the host refused, and keeps offering', async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessionId: 'side', embed: false, saved: false }))
+    const onSaveFailed = vi.fn()
+    const { deps: d } = deps({
+      byId: { side: row(false) },
+      fork: vi.fn(async () => { throw new Error('host refused') }),
+      onSaveFailed,
+    })
+    const sidecar = new Sidecar(d)
+    sidecar.restore()
+
+    const id = await sidecar.save()
+
+    expect(id).toBeUndefined()
+    expect(onSaveFailed).toHaveBeenCalledWith({ code: 'save-failed', message: expect.any(String) })
+    expect(sidecar.current()).toBe('side')
+    expect(sidecar.saved()).toBe(false)
   })
 })

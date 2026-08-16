@@ -31,17 +31,24 @@
  *
  * The one rule read from the mode system — on a RESTRICTED fiber, so a
  * composition without `omdsh-base` behaves exactly as this plugin always did —
- * is the embed preference: in Chat and Work a new side conversation is created
- * as a fork of the conversation being supervised, so it carries that
- * conversation's context ([embed](./embed.ts), [sidecar](./sidecar.ts)). In
- * Code mode, whose column is a terminal with no conversation to embed, it
- * never is, and the panel's embed button stands greyed. Chat mode has no
- * workspace, so a question asked there simply carries no anchor — the panel is
- * still the shortest path from "I have a thought" to "it is answered", and
- * that is true with or without a directory. This is the one place this
- * package's rule differs from `omdsh-sidepanel`'s, and the reason is that a file
- * panel with nothing to show has nothing to be, while a conversation with no
- * anchor is still a conversation.
+ * is the embed preference: a side conversation can be created as a fork of the
+ * conversation being supervised, so it carries that conversation's context
+ * ([embed](./embed.ts), [sidecar](./sidecar.ts)). The preference is OFF by
+ * default in every mode — the branch button in the panel header is what turns
+ * it on — and Code mode, whose column is a terminal with no conversation to
+ * embed, declines even then. Chat mode has no workspace, so a question asked
+ * there simply carries no anchor — the panel is still the shortest path from
+ * "I have a thought" to "it is answered", and that is true with or without a
+ * directory.
+ *
+ * A side conversation also stays OUT of the sidebar until the person presses
+ * the Save control in the panel's corner: it is hidden the moment it connects
+ * (the workspace registry's own archive verb), and Save cuts a fork of it that
+ * is not hidden — the conversation appears under its workspace and the panel
+ * goes on talking into it. See [sidecar](./sidecar.ts) for the whole rule.
+ * This is the one place this package's rule differs from `omdsh-sidepanel`'s,
+ * and the reason is that a file panel with nothing to show has nothing to be,
+ * while a conversation with no anchor is still a conversation.
  * @module @omdsh-plugins/omdsh-sidechat/client
  */
 
@@ -138,19 +145,45 @@ export function apply(ctx: ClientContext): void {
     // A fork that fell back is still a working panel; the notice line says
     // the embed did not happen.
     onEmbedFallback: fallback => { panel.fail(fallback) },
+    // A save that could not be made leaves the conversation hidden and the
+    // Save control offering; the notice line says why not.
+    onSaveFailed: failure => { panel.fail(failure) },
+    // A fresh session of our own rather than `connectWorkspace`: that verb
+    // reuses the workspace's blank conversation, which may be the one the
+    // person is looking at — and a conversation this panel is about to hide
+    // must never be theirs. A host without the create verb (not this
+    // harness's runtime) falls back to the connect it always used.
+    createSession: async ({ workspaceId }) => {
+      const concrete = sessions as unknown as { create?: (opts: { workspaceId?: unknown }) => Promise<string> }
+      if (typeof concrete.create === 'function') return concrete.create({ workspaceId })
+      return workspaces.connectWorkspace(workspaceId as never) as unknown as Promise<string>
+    },
+    // The hide is the workspace registry's own archive verb: log and account
+    // stay intact, the grouping surfaces stop drawing it. A refusal is not a
+    // failure of the panel — the conversation simply stays visible, which the
+    // sidecar reads as already saved.
+    archiveSession: async (sessionId) => {
+      try {
+        await workspaces.archiveSession(sessionId as never)
+        return true
+      } catch {
+        return false
+      }
+    },
   })
   const transcript = new TranscriptSource(sessions, sidecar)
   // One roster for both toggle seats, so the header icon and its understudy are
   // never up at the same time and never both away.
   const seats = new HeaderSeats()
 
-  // The panel renders the identity and the embed state, the sidecar owns both:
-  // one subscription keeps the three in step rather than every call site
-  // writing each.
+  // The panel renders the identity, the embed state and the saved state; the
+  // sidecar owns all three: one subscription keeps the four in step rather
+  // than every call site writing each.
   ctx.effect(() => {
     const sync = (): void => {
       panel.attach(sidecar.current())
       panel.setEmbed(sidecar.parent() !== undefined, sidecar.parent())
+      panel.setSaved(sidecar.saved())
     }
     const off = sidecar.subscribe(sync)
     sidecar.restore()
@@ -320,6 +353,7 @@ export function apply(ctx: ClientContext): void {
       sessions.open(sessionId as never)
       panel.close()
     },
+    save: () => { void sidecar.save() },
     retarget: () => { panel.retarget(here()) },
     moveTo: (position) => { panel.moveTo(position) },
     open: summon,

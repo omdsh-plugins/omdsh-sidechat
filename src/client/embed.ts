@@ -59,7 +59,10 @@ export function activeModeOf(segments: readonly { id: string; active: boolean }[
 export interface EmbedDecision {
   /** The mode holding the column; undefined means no mode system. */
   mode: string | undefined
-  /** The person's preference: embed until they press the button. */
+  /**
+   * The person's preference, OFF by default: a side conversation embeds only
+   * after the panel's branch button has turned the preference on.
+   */
   preferEmbedded: boolean
   /** The conversation being supervised, if there is one. */
   current: string | undefined

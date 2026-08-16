@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web GUI to open a **conversation of its own**, right where you are. It carries whatever you were looking at as its anchor, and both the question and the answer stay in its own session — the one you are actually running is not touched, context included. In Chat and Work modes the side conversation also **carries the context of the one you are running** by default: it is a fork of it, cut by the host's own `fork` verb, a copy — the original conversation is not touched by a word.
+Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web GUI to open a **conversation of its own**, right where you are. It carries whatever you were looking at as its anchor, and both the question and the answer stay in its own session — the one you are actually running is not touched, context included. That session also **stays out of the sidebar until you save it**; the Save control in the panel's corner is what gives it a row under its workspace. Embedding the context of the conversation you are running is there too — as the branch button in the header, **off by default**: a side conversation is standalone unless you ask it to be a fork.
 
 ## What it adds
 
@@ -13,14 +13,14 @@ Press ⌘L **anywhere** in the [DeepSeek Harness](https://github.com/deepseek-ai
 | An icon in the session header's utility row | The `conversation.session.header.utilities` list slot at order `105`, inboard of omdsh-sidepanel's switches |
 | The same icon when that row is away | An understudy in `shell.overlay` at order `-8`, holding the corner in a blank conversation and in Code mode |
 | The `sidechat` service — `registerAnchorSource`, `summonChord`, `setSummonChord` | `ctx.reflect.provide` in the browser half; a panel that knows where it is can say so |
-| A side conversation in the `Chat` workspace — or a fork branch of the current conversation | `ISessions.fork`, `IWorkspaces.connectWorkspace` and `ISession.prompt`, the faces the browser already holds — there is no host half |
+| A hidden side conversation in the `Chat` workspace — or a fork branch of the current conversation — and a Save control that gives it a sidebar row | `ISessions.fork`, the host's `session.create` for a fresh one, `IWorkspaces.archiveSession` for the hide and `ISession.prompt` — the faces the browser already holds, so there is no host half |
 | The `sidechat.open` command | Registered with `omdsh-shortcuts` when its `shortcut` service is there, which is also where the icon's tooltip reads its chord |
 
 The harness has one input, at the bottom of the conversation column, and it belongs to the thing you are running. So every "wait, what does this function do?" costs you twice: your hands leave what you were reading, and **the question moves into that conversation's context**, where it stays — taking up window, shaping every turn after it.
 
 This plugin deletes both costs: **summon a conversation of your own, where you already are.**
 
-It is a full session — multi-turn, with history, stored in the `Chat` workspace (as a fork in the source conversation's workspace when it embeds one), no different from any conversation you open from the sidebar. It just happens to be summoned from beside the line you were pointing at.
+It is a full session — multi-turn, with history, living in the `Chat` workspace (in the source conversation's workspace when it embeds one). Until it is saved it is **hidden from the sidebar**, and it stays its own thing either way — it just happens to be summoned from beside the line you were pointing at.
 
 ## What it shows
 
@@ -51,7 +51,9 @@ A deployment without the chat plugin has no such workspace; there it opens a sec
 
 **When it embeds a context, it is a fork.** `sessions.fork` is the harness's own verb for "a conversation carrying this history" — the host-side live-session fork API, the same one the harness's conversation column uses. The child receives the source's full history as its seed, inherits its working directory, and carries the lineage in `parentSessionId`, so the sidebar **nests it under the source conversation**. This plugin copies nothing and writes nothing into the supervised conversation — a fork is a read-only branch.
 
-**Remembered across reloads**: the side conversation in use is kept in localStorage — the session id, the conversation it was forked from, and the embed preference, in one record (a bare id written by an older version is read as "no parent, preference on"). A remembered id is verified against the session list first — a conversation that was deleted is not an error, it is a conversation that ended.
+**Hidden until saved.** Whatever path created it, the conversation is archived the moment it connects — the workspace registry's own verb, which stops every grouping surface from drawing it while its log and its workspace account stay intact. It is not a lightweight scratch pad: it is a real persisted session the sidebar simply agrees not to show. The one exception is a hide the host refused — the conversation stays visible and is treated as saved, because it already has the row Save would have created.
+
+**Remembered across reloads**: the side conversation in use is kept in localStorage — the session id, the conversation it was forked from, the embed preference, and whether it is saved, in one record (a bare id written by an older version is read as "no parent, preference off, saved"; a record from before the save feature reads as saved, since those conversations were never hidden). A remembered id is verified against the session list first — a conversation that was deleted is not an error, it is a conversation that ended.
 
 And **what was said in it comes back too**. The harness pulls a session's history for the session that is on stage, and this one deliberately never is — so the panel asks for its own window when it binds (`transcript-source.ts`). Without that step a remembered conversation returns live but blank: everything said after the reload, nothing said before it.
 
@@ -59,23 +61,31 @@ And **what was said in it comes back too**. The harness pulls a session's histor
 
 **Embed context** — the branch icon, and the conversation's **state** in one control: it shows whether this side conversation currently carries another conversation's context, and it is the switch itself.
 
-- **Lit** (brand blue): this side conversation is a fork of the current conversation, and the context is right there in the window. Pressing it **detaches** — the embedded context leaves the window and a new conversation without it starts; the fork left behind stays in the list and can be reopened like any other.
+- **Lit** (brand blue): this side conversation is a fork of the current conversation, and the context is right there in the window. Pressing it **detaches** — the embedded context leaves the window and a new conversation without it starts; the fork left behind stays hidden, like every unsaved side conversation.
 - **Dim**: this conversation is standalone. Pressing it **embeds** — a fork of the conversation being supervised starts as a new side conversation carrying its context.
 - **Greyed out in Code mode**: that column is a terminal, there is no "current conversation" to embed. The button is disabled and nothing is ever forked.
 
-Both directions land as **a new conversation**, because a conversation's context is its history — it can neither be grafted in afterwards nor removed in place. Chat and Work default to lit, Code stays grey; a deployment without `omdsh-base` has no mode system and is treated as Chat/Work.
+Both directions land as **a new conversation**, because a conversation's context is its history — it can neither be grafted in afterwards nor removed in place. Every mode defaults to dim — standalone — and the button is what turns embedding on; Code stays grey; a deployment without `omdsh-base` has no mode system and is treated as Chat/Work.
 
-**Open in the Chat window** — jump to this conversation in the main UI. It is an ordinary session already (in the `Chat` workspace, or the source's workspace when it is a fork), so "opening" it is just navigation (`sessions.open`): no export, no copy, no second representation of the same messages. Go there to keep talking at length, or to see the full reasoning and tool calls — that is the workbench, this is the side. Disabled until a conversation is connected.
+**Open in the Chat window** — jump to this conversation in the main UI. It is an ordinary session already (in the `Chat` workspace, or the source's workspace when it is a fork), so "opening" it is just navigation (`sessions.open`): no export, no copy, no second representation of the same messages. Go there to keep talking at length, or to see the full reasoning and tool calls — that is the workbench, this is the side. Disabled until a conversation is connected. An unsaved conversation opened this way keeps no sidebar row — press Save in the panel first when the conversation should stay findable.
 
 **New chat** — below.
 
 **Close** — dismisses the panel only; the conversation is untouched.
 
+## Save
+
+The control in the panel's bottom-right corner — a small **Save** beside the status line, the one thing in the footer that is not about asking.
+
+Until it is pressed the side conversation has **no row in the sidebar**, in any mode. Pressing it cuts a fork of the hidden conversation: the child carries its history, inherits its working directory and workspace, is **not** hidden — and the panel goes on talking into the child. The hidden original stays hidden. The harness has no "unhide" verb, so a saved conversation is a new branch by construction; nothing is ever lost from the panel's point of view, and the sidebar row appears under the conversation's own workspace — `Chat` for a standalone side, the source's workspace for an embedded one.
+
+Once saved the control reads **Saved** with a check, and stays that way for the life of the conversation. It refuses while the conversation is still blank (there is nothing to save, and a blank session in a workspace account is what the harness reuses for New Session) and while the answer is running (a fork is a snapshot of the last *completed* turn — saving then would drop the turn in flight). A save the host refused keeps the conversation hidden and says so on the status line; the button keeps offering.
+
 ## New chat
 
-The button in the panel header. It starts a fresh one; the previous conversation stays where it was (the `Chat` workspace, or the workspace its fork lives in) and can be reopened from the sidebar like any other. **New chat obeys the embed preference**: on, it starts as a new fork of the current conversation; off, it is the blank conversation below.
+The button in the panel header. It starts a fresh one; the previous conversation stays where it was — hidden, or in the sidebar when it was saved. **New chat obeys the embed preference**: on, it starts as a new fork of the current conversation; off, it is the blank conversation below.
 
-Underneath the standalone side is `connectWorkspace`, which **reuses the workspace's blank session** — so pressing it twice without saying anything leaves you in the same empty conversation rather than littering `Chat` with shells. Same rule the harness's own New Session follows. A fork has no such reuse: a branch is new by construction.
+Underneath the standalone side is a fresh `session.create` in the home workspace, with this plugin's **own blank reuse** — pressing New Chat twice without saying anything leaves you in the same empty conversation rather than littering `Chat` with hidden shells. Same rule the harness's own New Session follows, scoped to this plugin's own conversations: the harness's `connectWorkspace` reuse is deliberately not used, because it can hand back the conversation the person is looking at, and a conversation this panel is about to hide must never be theirs. A fork has no such reuse: a branch is new by construction.
 
 ## Where the anchor comes from
 
@@ -160,7 +170,7 @@ That row is not always on screen, and both states where it is missing are ordina
 - **a blank conversation**, where the harness clears the entire header for the hero — so the very first thing you see would offer no way in;
 - **Code mode**, where `omdsh-code` shadows the whole `conversation` seat with a terminal, header and all. The chord is yielded to the terminal there as well, so without a stand-in the panel would be unreachable for as long as Code mode was on.
 
-So the same button has an **understudy** on the frame's floating layer, holding the corner the utility row occupies — the header's own measured padding, the row's own height — so the icon does not move when the header comes and goes. **The panel is there in Chat, Work and Code alike, with exactly one behavioural difference**: context embedding is on by default and switchable in Chat and Work, and off with the button greyed in Code — that column is a terminal, there is no conversation to embed. The way in exists in all three.
+So the same button has an **understudy** on the frame's floating layer, holding the corner the utility row occupies — the header's own measured padding, the row's own height — so the icon does not move when the header comes and goes. **The panel is there in Chat, Work and Code alike, with exactly one behavioural difference**: context embedding is switchable — off by default — in Chat and Work, and off with the button greyed in Code — that column is a terminal, there is no conversation to embed. The way in exists in all three.
 
 The two never show at once, and what the understudy waits on is the header entry's own **mount report**, never a re-derivation of when the harness hides its header. That report is also the re-measure signal: the column keeps its exact geometry when Code mode takes it, so nothing about its box says the seat changed.
 
@@ -213,7 +223,7 @@ Until a chord is bound to `sidechat.open` there, the header icon is the way in �
 
 `src/index.ts` is an empty `apply()`.
 
-The panel asks through `ISession.prompt`, reads answers through `SessionFace` (which *is* an `ObservableSnapshot<ConversationSnapshot>`), and finds a home through `ISessions.fork` or `IWorkspaces.connectWorkspace` — all public faces the browser already holds. The mode comes from the `sessionModes` service `omdsh-base` publishes, reached by name on a restricted fiber and treated as "no mode system" when it is not there. The anchor is built from the browser's own selection, with no filesystem read. So **there is no route to serve, no working directory to fence, and no reach for this plugin to acquire**.
+The panel asks through `ISession.prompt`, reads answers through `SessionFace` (which *is* an `ObservableSnapshot<ConversationSnapshot>`), and finds a home through `ISessions.fork` or the runtime's own `session.create` — with the hide and the save going through `IWorkspaces.archiveSession` and one more fork — all public faces the browser already holds. The mode comes from the `sessionModes` service `omdsh-base` publishes, reached by name on a restricted fiber and treated as "no mode system" when it is not there. The anchor is built from the browser's own selection, with no filesystem read. So **there is no route to serve, no working directory to fence, and no reach for this plugin to acquire**.
 
 The empty `apply()` exists to make this package a Loader entry, because that is the set `dsh-client-modules` scans for `dsh.client`.
 
@@ -241,7 +251,7 @@ dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
 
 It needs a **web surface**: the browser half is everything here, and its `inject` names only harness services (`slots`, `sessions`, `workspaces`, `locale`). On a surface with no browser — the TUI, headless — the client half is never fetched and the node half is a no-op, which is correct: there is nothing here to run.
 
-Every companion is optional and each absence is answered rather than fatal. With no `omdsh-justchat` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-base` there is no mode system, so embedding is treated as Chat/Work (always embeddable, on by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
+Every companion is optional and each absence is answered rather than fatal. With no `omdsh-justchat` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-base` there is no mode system, so embedding is treated as Chat/Work (always embeddable, off by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
 
 **It registers no settings namespace.** There is nothing here a form could draw — the one adjustable thing is the chord, and that is either the built-in default or a row in `omdsh-shortcuts`'s document — so the plugin hub lists this package and offers no controls, which is the honest rendering rather than an empty panel.
 
@@ -265,6 +275,8 @@ The specs are deliberately kept runnable under the registry pin: every harness i
 
 - **It never touches the conversation you are running.** A fork only reads the source's history; a question is never sent into the main session from here. And the reverse holds too: there is no way to send a question into the main session, only to cut a branch of its own.
 - **Embedding is a snapshot of the moment the branch was cut.** Once forked, nothing the source says afterwards flows in; to catch up, press the embed button again and cut a new branch.
+- **Saving is a fork too.** The harness has no "unhide" verb, so Save cuts a branch of the hidden conversation and the panel continues there; the hidden original — including everything said after the save — is not in the sidebar, and there is no way to delete it from this panel.
+- **Unsaved conversations are invisible, not gone.** They are real persisted sessions the sidebar agrees not to draw; New Chat leaves the old one behind with no sidebar row to reopen it from, and only this panel's localStorage record still reaches it.
 - **No reasoning and no tool calls.** They are dropped rather than collapsed. When you want them, the button in the header takes you to the workbench where they are all laid out.
 - **It reads no files.** The anchor is whatever the DOM already showed you; there is no `@` completion of its own, and no way to attach a file the page was not displaying.
 - **One anchor, one file.** A quotation spanning two files is two questions, and images are not accepted at all — that is a composer capability, and this is not a composer.

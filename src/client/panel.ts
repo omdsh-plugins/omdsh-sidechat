@@ -57,6 +57,14 @@ export interface SideChatState {
   embedOn: boolean
   /** The conversation it embeds, when it embeds one. */
   embedParent: string | undefined
+  /**
+   * Whether the conversation is saved into the sidebar under its workspace.
+   *
+   * A fresh side conversation is hidden from the sidebar until the person
+   * presses Save; a saved one — and one whose hide the host refused — reads
+   * true and the Save control shows its done state.
+   */
+  saved: boolean
   /** Whether the current mode offers embedding at all (the button's enabled state). */
   embeddable: boolean
   /** The last delivery failure, until the next attempt. */
@@ -86,6 +94,7 @@ export function defaultSideChat(accelerator?: string): SideChatState {
     sessionId: undefined,
     embedOn: false,
     embedParent: undefined,
+    saved: false,
     embeddable: true,
     notice: undefined,
     accelerator,
@@ -191,6 +200,14 @@ export class SideChatPanel {
       state.embedOn = on
       state.embedParent = parent
     })
+  }
+
+  /**
+   * Record whether the current conversation is saved into the sidebar.
+   * @param saved - true once it has a row under its workspace.
+   */
+  setSaved(saved: boolean): void {
+    this.store.update((state) => { state.saved = saved })
   }
 
   /**

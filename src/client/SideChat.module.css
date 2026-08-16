@@ -327,3 +327,44 @@
 .error {
   color: var(--dsw-alias-label-primary);
 }
+
+/*
+ * The save control, in the footer's right corner. A label rather than a bare
+ * glyph: what it does — put this conversation in the sidebar — is a fact worth
+ * reading, and its done state is a reassurance rather than a decoration. It
+ * reads as furniture until hovered, and its disabled states (blank, running,
+ * saved) grey it out the way the header buttons grey theirs.
+ */
+.saveBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.saveBtn:hover:not(:disabled),
+.saveBtn:focus-visible {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.saveBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* The done state: a quiet check where the offer stood. */
+.saveBtnDone {
+  color: var(--dsw-alias-label-tertiary);
+}
