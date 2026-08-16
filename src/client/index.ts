@@ -29,7 +29,13 @@
  * withdraws with it, and re-registers if it returns), and removing this
  * plugin's row removes the surface, the service and the listener together.
  *
- * There is no mode derivation and no session filter. Chat mode has no
+ * The one rule read from the mode system — on a RESTRICTED fiber, so a
+ * composition without `omdsh-base` behaves exactly as this plugin always did —
+ * is the embed preference: in Chat and Work a new side conversation is created
+ * as a fork of the conversation being supervised, so it carries that
+ * conversation's context ([embed](./embed.ts), [sidecar](./sidecar.ts)). In
+ * Code mode, whose column is a terminal with no conversation to embed, it
+ * never is, and the panel's embed button stands greyed. Chat mode has no
  * workspace, so a question asked there simply carries no anchor — the panel is
  * still the shortest path from "I have a thought" to "it is answered", and
  * that is true with or without a directory. This is the one place this
@@ -49,6 +55,7 @@ import { DEFAULT_SUMMON_ACCELERATOR, parseAccelerator } from './chord.ts'
 import type { ISideChat, SideChatInjected } from './contract.ts'
 import { deliver, targetOf } from './deliver.ts'
 import { selectionAnchor, selectionRect } from './dom-anchor.ts'
+import { activeModeOf, CODE_MODE_ID, SESSION_MODES, type IModeSegments } from './embed.ts'
 import { HeaderSeats } from './header-seat.ts'
 import { installHotkey } from './hotkey.ts'
 import { en, zh, type SideChatKey } from './locales.ts'
@@ -121,20 +128,61 @@ export function apply(ctx: ClientContext): void {
   // reading the live selection is always available and always last.
   const anchors = new AnchorRegistry([() => selectionAnchor(window.getSelection())])
   const panel = new SideChatPanel(DEFAULT_SUMMON_ACCELERATOR)
-  const sidecar = new Sidecar({ sessions, workspaces })
+  // The mode holding the column, resolved on the restricted fiber below. Read
+  // through a getter at connect time — the only moment the embed rule asks.
+  let activeMode: string | undefined
+  const sidecar = new Sidecar({
+    sessions,
+    workspaces,
+    mode: () => activeMode,
+    // A fork that fell back is still a working panel; the notice line says
+    // the embed did not happen.
+    onEmbedFallback: fallback => { panel.fail(fallback) },
+  })
   const transcript = new TranscriptSource(sessions, sidecar)
   // One roster for both toggle seats, so the header icon and its understudy are
   // never up at the same time and never both away.
   const seats = new HeaderSeats()
 
-  // The panel renders the identity, the sidecar owns it: one subscription
-  // keeps the two in step rather than every call site writing both.
+  // The panel renders the identity and the embed state, the sidecar owns both:
+  // one subscription keeps the three in step rather than every call site
+  // writing each.
   ctx.effect(() => {
-    const off = sidecar.subscribe(() => { panel.attach(sidecar.current()) })
+    const sync = (): void => {
+      panel.attach(sidecar.current())
+      panel.setEmbed(sidecar.parent() !== undefined, sidecar.parent())
+    }
+    const off = sidecar.subscribe(sync)
     sidecar.restore()
-    panel.attach(sidecar.current())
+    sync()
     return off
   }, 'omdsh-sidechat: side conversation identity')
+
+  // The embed rule's one mode read. A RESTRICTED fiber: a composition with no
+  // mode system keeps the default — embeddable, the button enabled — and Code
+  // mode is the only segment that declines. See ./embed.ts and rule 9 of the
+  // conventions.
+  ctx.inject([SESSION_MODES], (mctx) => {
+    const modes = mctx.get(SESSION_MODES) as unknown as IModeSegments | undefined
+    if (modes === undefined) return
+
+    mctx.effect(() => {
+      const follow = (): void => {
+        const next = activeModeOf(modes.store.getSnapshot())
+        activeMode = next
+        panel.setEmbeddable(next !== CODE_MODE_ID)
+      }
+      follow()
+      const off = modes.store.subscribe(follow)
+      // Hand the answer back to "no mode system" — the embeddable default —
+      // rather than freezing on the last mode the departing system reported.
+      return () => {
+        off()
+        activeMode = undefined
+        panel.setEmbeddable(true)
+      }
+    }, 'omdsh-sidechat: follow the active mode')
+  })
 
   /** Resolve the anchor from wherever things stand right now. */
   const here = (): Anchor => anchors.resolve()
@@ -257,6 +305,12 @@ export function apply(ctx: ClientContext): void {
       if (!result.ok) panel.fail({ code: result.code, message: result.message })
     },
     newChat: () => { void sidecar.fresh() },
+    toggleEmbed: () => {
+      // The button is disabled in Code mode; this guard is the same refusal
+      // for a call that did not come through the button.
+      if (activeMode === CODE_MODE_ID) return
+      void sidecar.toggleEmbedded()
+    },
     showInChat: () => {
       // It is an ordinary conversation in an ordinary workspace, so "show it"
       // is just navigation — no export, no copy, no second representation of

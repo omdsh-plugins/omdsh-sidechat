@@ -127,6 +127,23 @@
   cursor: default;
 }
 
+/*
+ * The embed button's ON state: the same brand blue the working line wears
+ * below, held on a persistent fill, so "this window carries the current
+ * conversation's context" reads as a state rather than a hover. The disabled
+ * rule above still greys it out in Code mode, where embedding is not offered.
+ */
+.headBtnOn {
+  color: var(--dsw-static-deepseek-450);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.headBtnOn:hover:not(:disabled),
+.headBtnOn:focus-visible {
+  color: var(--dsw-static-deepseek-450);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
 /* ── the transcript ─────────────────────────────────────────────────────── */
 
 .scroll {

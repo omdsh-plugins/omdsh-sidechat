@@ -135,6 +135,16 @@ export interface SideChatInjected {
    */
   newChat: () => void
   /**
+   * Flip the embed preference and start over under it.
+   *
+   * Turning it OFF starts a plain side conversation, which is how the embedded
+   * context leaves this window — a context that is a session's history cannot
+   * be removed in place. Turning it back ON forks the conversation currently
+   * being supervised into a new side conversation. No-op in Code mode, where
+   * the button is disabled: embedding is not offered there.
+   */
+  toggleEmbed: () => void
+  /**
    * Open the side conversation in the main window, where it is an ordinary
    * conversation in the Chat workspace, and dismiss the panel.
    */

@@ -1,6 +1,7 @@
 /**
  * The panel's own state: whether it is up, over what, whose conversation it is
- * showing, and what went wrong last.
+ * showing, whether that conversation embeds a supervised one, and what went
+ * wrong last.
  *
  * Held in a plugin-owned observable rather than a slot-declared store because
  * the state has to exist BEFORE the entry renders — the key listener writes it
@@ -52,6 +53,12 @@ export interface SideChatState {
   position: Placement | undefined
   /** The side conversation being shown, once one is connected. */
   sessionId: string | undefined
+  /** Whether that conversation embeds a supervised conversation's context. */
+  embedOn: boolean
+  /** The conversation it embeds, when it embeds one. */
+  embedParent: string | undefined
+  /** Whether the current mode offers embedding at all (the button's enabled state). */
+  embeddable: boolean
   /** The last delivery failure, until the next attempt. */
   notice: Notice | undefined
   /**
@@ -77,6 +84,9 @@ export function defaultSideChat(accelerator?: string): SideChatState {
     anchor: NO_ANCHOR,
     position: loadPosition(),
     sessionId: undefined,
+    embedOn: false,
+    embedParent: undefined,
+    embeddable: true,
     notice: undefined,
     accelerator,
   }
@@ -169,6 +179,27 @@ export class SideChatPanel {
    */
   attach(sessionId: string | undefined): void {
     this.store.update((state) => { state.sessionId = sessionId })
+  }
+
+  /**
+   * Record whether the current conversation embeds a supervised one.
+   * @param on - true while it is a fork of a supervised conversation.
+   * @param parent - the fork source, when there is one.
+   */
+  setEmbed(on: boolean, parent: string | undefined): void {
+    this.store.update((state) => {
+      state.embedOn = on
+      state.embedParent = parent
+    })
+  }
+
+  /**
+   * Record whether the current mode offers embedding. Only Code mode declines;
+   * no mode system at all is the embeddable default.
+   * @param embeddable - the button's enabled state.
+   */
+  setEmbeddable(embeddable: boolean): void {
+    this.store.update((state) => { state.embeddable = embeddable })
   }
 
   /**

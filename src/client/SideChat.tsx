@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import {
-  IconCloseOutline16, IconNewChatOutline16, IconRightUpOutline16,
+  IconBranchOutline16, IconCloseOutline16, IconNewChatOutline16, IconRightUpOutline16,
   MarkdownText, MessageText, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toAssistantBlocks } from '@deepseek-ai/dsh-client-runtime/client'
@@ -40,19 +40,25 @@ import css from './SideChat.module.css'
  */
 export function SideChat({
   useSideChat, useSessions, useTranscript,
-  submit, retarget, moveTo, newChat, showInChat, close, clearNotice, t,
+  submit, retarget, moveTo, newChat, toggleEmbed, showInChat, close, clearNotice, t,
 }: SideChatProps) {
   const open = useSideChat(state => state.open)
   const anchor = useSideChat(state => state.anchor)
   const position = useSideChat(state => state.position)
   const notice = useSideChat(state => state.notice)
   const sessionId = useSideChat(state => state.sessionId)
+  const embedOn = useSideChat(state => state.embedOn)
+  const embedParent = useSideChat(state => state.embedParent)
+  const embeddable = useSideChat(state => state.embeddable)
 
   // Primitive selections on purpose: a selector returning a fresh object would
   // re-render this tree on every streaming update of the session list.
   const sourceCwd = useSessions(state => (state.current === undefined ? undefined : state.byId[state.current]?.cwd))
   const targetCwd = useSessions(state => (sessionId === undefined ? undefined : state.byId[sessionId as never]?.cwd))
   const running = useSessions(state => (sessionId === undefined ? false : state.byId[sessionId as never]?.running === true))
+  const parentTitle = useSessions(state => (
+    embedParent === undefined ? undefined : state.byId[embedParent as never]?.title
+  ))
 
   const snapshot = useTranscript(state => state)
   // The runtime's own classifier: the display rule lives in transcript.ts,
@@ -142,6 +148,14 @@ export function SideChat({
     ? { left: 0, top: 0 }
     : clampPlacement(position, { width: window.innerWidth, height: window.innerHeight }, BOX_SIZE)
 
+  // The button's state and its promise, in one line: what pressing it will do
+  // is exactly what the state it shows is not.
+  const embedTip = !embeddable
+    ? t('embed.unavailable')
+    : embedOn
+      ? (parentTitle === undefined ? t('embed.onUntitled') : t('embed.on', { title: parentTitle }))
+      : t('embed.off')
+
   if (!open || position === undefined) return null
 
   return (
@@ -160,6 +174,18 @@ export function SideChat({
         onPointerCancel={onDragEnd}
       >
         <span className={css.title}>{t('title')}</span>
+        <Tooltip label={embedTip} side="bottom" delayMs={500}>
+          <button
+            type="button"
+            className={embedOn ? `${css.headBtn} ${css.headBtnOn}` : css.headBtn}
+            onClick={toggleEmbed}
+            disabled={!embeddable}
+            aria-pressed={embedOn}
+            aria-label={t('embed.label')}
+          >
+            <IconBranchOutline16 />
+          </button>
+        </Tooltip>
         <Tooltip label={t('showInChat')} side="bottom" delayMs={500}>
           <button
             type="button"
@@ -234,7 +260,7 @@ export function SideChat({
         <div className={css.status}>
           <span className={notice === undefined ? css.hint : `${css.hint} ${css.error}`}>
             {notice !== undefined
-              ? t('failed', { code: notice.code })
+              ? (notice.code === 'embed-failed' ? t('embed.failed') : t('failed', { code: notice.code }))
               : sessionId === undefined
                 ? t('connecting')
                 : running ? t('status.queue') : t('status.idle')}
