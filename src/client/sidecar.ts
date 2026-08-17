@@ -24,7 +24,7 @@
  * the hidden one stays hidden, and the saved one is where the talking happens.
  *
  * Its home for a plain session is the host-managed `Chat` workspace — the same
- * workspace `omdsh-justchat` creates and `omdsh-sidepanel` derives its mode
+ * workspace `omdsh-chatmode` creates and `omdsh-sidepanel` derives its mode
  * from, matched here by the title the user reads rather than by an import. That
  * is a product fact (it is the group heading in the sidebar), which is why
  * three packages can agree on it without depending on each other. A deployment
@@ -38,7 +38,7 @@
 import type { ISessions, IWorkspaces, SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
 import { shouldEmbed, type EmbedDecision } from './embed.ts'
 
-/** Display title of the host-managed Chat workspace, owned by `omdsh-justchat`. */
+/** Display title of the host-managed Chat workspace, `omdsh-chatmode`'s own. */
 export const CHAT_WORKSPACE_TITLE = 'Chat'
 
 /** localStorage key the side conversation is remembered under. */

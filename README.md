@@ -45,7 +45,7 @@ Not a byte of the styling is invented here: answers go through the harness's own
 
 ## Where it lives
 
-In **a session of its own**, in the host-managed `Chat` workspace — the one [`omdsh-justchat`](https://github.com/omdsh-plugins/omdsh-justchat) creates and [`omdsh-sidepanel`](https://github.com/omdsh-plugins/omdsh-sidepanel) derives its mode from, matched here by the **title** a user reads rather than by an import. That is a product fact (it is the group heading in the sidebar), which is how three packages agree on it without depending on each other.
+In **a session of its own**, in the host-managed `Chat` workspace — the one [`omdsh-chatmode`](https://github.com/omdsh-plugins/omdsh-chatmode) creates and [`omdsh-sidepanel`](https://github.com/omdsh-plugins/omdsh-sidepanel) derives its mode from, matched here by the **title** a user reads rather than by an import. That is a product fact (it is the group heading in the sidebar), which is how three packages agree on it without depending on each other.
 
 A deployment without the chat plugin has no such workspace; there it opens a second session in **the current conversation's workspace** instead. The two contexts stay apart either way — they just share a directory. This plugin does not quietly become a dependent of that one.
 
@@ -168,7 +168,7 @@ The hard part is not the button, it is not destroying the selection while pressi
 That row is not always on screen, and both states where it is missing are ordinary:
 
 - **a blank conversation**, where the harness clears the entire header for the hero — so the very first thing you see would offer no way in;
-- **Code mode**, where `omdsh-code` shadows the whole `conversation` seat with a terminal, header and all. The chord is yielded to the terminal there as well, so without a stand-in the panel would be unreachable for as long as Code mode was on.
+- **Code mode**, where `omdsh-codemode` shadows the whole `conversation` seat with a terminal, header and all. The chord is yielded to the terminal there as well, so without a stand-in the panel would be unreachable for as long as Code mode was on.
 
 So the same button has an **understudy** on the frame's floating layer, holding the corner the utility row occupies — the header's own measured padding, the row's own height — so the icon does not move when the header comes and goes. **The panel is there in Chat, Work and Code alike, with exactly one behavioural difference**: context embedding is switchable — off by default — in Chat and Work, and off with the button greyed in Code — that column is a terminal, there is no conversation to embed. The way in exists in all three.
 
@@ -251,7 +251,7 @@ dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
 
 It needs a **web surface**: the browser half is everything here, and its `inject` names only harness services (`slots`, `sessions`, `workspaces`, `locale`). On a surface with no browser — the TUI, headless — the client half is never fetched and the node half is a no-op, which is correct: there is nothing here to run.
 
-Every companion is optional and each absence is answered rather than fatal. With no `omdsh-justchat` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-base` there is no mode system, so embedding is treated as Chat/Work (always embeddable, off by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
+Every companion is optional and each absence is answered rather than fatal. With no `omdsh-chatmode` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-base` there is no mode system, so embedding is treated as Chat/Work (always embeddable, off by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
 
 **It registers no settings namespace.** There is nothing here a form could draw — the one adjustable thing is the chord, and that is either the built-in default or a row in `omdsh-shortcuts`'s document — so the plugin hub lists this package and offers no controls, which is the honest rendering rather than an empty panel.
 

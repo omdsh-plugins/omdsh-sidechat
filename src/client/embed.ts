@@ -32,7 +32,7 @@ export const SESSION_MODES = 'sessionModes'
 
 /**
  * The mode whose column is not a conversation at all, so there is nothing to
- * embed: `omdsh-code`'s terminal. A literal for the same reason as
+ * embed: `omdsh-codemode`'s terminal. A literal for the same reason as
  * {@link SESSION_MODES}: the id is a wire word the two packages share, not a
  * symbol one owns.
  */

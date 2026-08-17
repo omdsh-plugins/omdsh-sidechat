@@ -22,8 +22,8 @@
  * and keeps reading it: `onBindings` fires on every revision, which is what
  * makes a rebinding in the settings panel reach the tooltip with no reload.
  *
- * Structural mirror rather than an import, for the reason `omdsh-code` mirrors
- * the mode registry: cordis binds services by name at runtime, and a
+ * Structural mirror rather than an import, for the reason `omdsh-codemode`
+ * mirrors the mode registry: cordis binds services by name at runtime, and a
  * cross-plugin value import is a client-bundle purity error.
  * @module @omdsh-plugins/omdsh-sidechat/src/client/shortcut
  */

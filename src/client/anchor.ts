@@ -9,7 +9,7 @@
  *
  * The roster exists so that a panel which knows more than the DOM does can say
  * so WITHOUT this package importing it. `omdsh-sidepanel`'s preview knows the
- * file it is showing; `omdsh-code`'s terminal knows its working directory.
+ * file it is showing; `omdsh-codemode`'s terminal knows its working directory.
  * Either could register a source here one day. Neither is imported, neither is
  * required, and with no registrations at all the built-in DOM reading is the
  * whole answer — see [dom-anchor](./dom-anchor.ts).

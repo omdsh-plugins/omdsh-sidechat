@@ -45,7 +45,7 @@ harness 自己的对话列是一个**工作台**：推理、工具调用、结�
 
 ## 它住在哪
 
-一条**自己的 session**，落在宿主托管的 `Chat` 工作区里——就是 [`omdsh-justchat`](https://github.com/omdsh-plugins/omdsh-justchat) 创建、[`omdsh-sidepanel`](https://github.com/omdsh-plugins/omdsh-sidepanel) 用来推导模式的那一个，这里按用户读到的**标题**去认，而不是靠 import。这是个产品事实（它就是侧边栏里的分组标题），所以三个包能在它上面达成一致而互不依赖。
+一条**自己的 session**，落在宿主托管的 `Chat` 工作区里——就是 [`omdsh-chatmode`](https://github.com/omdsh-plugins/omdsh-chatmode) 创建、[`omdsh-sidepanel`](https://github.com/omdsh-plugins/omdsh-sidepanel) 用来推导模式的那一个，这里按用户读到的**标题**去认，而不是靠 import。这是个产品事实（它就是侧边栏里的分组标题），所以三个包能在它上面达成一致而互不依赖。
 
 没装 chat 插件的部署没有这个工作区，那就退到**当前会话所在的工作区**里开第二条 session。上下文照样是分开的，只是两条对话共享一个目录。这个插件不会因此变成偷偷依赖那一个。
 
@@ -168,7 +168,7 @@ ctx.sidechat.registerAnchorSource(() => ({ origin: 'element', path: currentFile 
 这一排并不总在屏幕上，而它不在的两种状态都很日常：
 
 - **空白会话**：harness 会为 hero 把整个标题栏清掉——于是你看到的第一屏反而没有入口；
-- **Code 模式**：`omdsh-code` 用终端遮住了整个 `conversation` 座位，标题栏一起没了。快捷键在那儿也是让给终端的，所以没有替身的话，只要 Code 模式开着，这个面板就够不着。
+- **Code 模式**：`omdsh-codemode` 用终端遮住了整个 `conversation` 座位，标题栏一起没了。快捷键在那儿也是让给终端的，所以没有替身的话，只要 Code 模式开着，这个面板就够不着。
 
 所以同一个按钮在悬浮层上有一个**替身**，占住工具位那一排的角落——用标题栏自己量出来的 padding、那一排自己的高度——于是标题栏来了又走的时候图标不会跳。**面板在 Chat / Work / Code 三种模式下都在，行为只有一处不同**：嵌入上下文在 Chat 和 Work 里可开关、默认关，在 Code 里关闭且按钮变灰——那一列是终端，没有可嵌入的会话。入口在三种模式下都在。
 
@@ -251,7 +251,7 @@ dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
 
 它需要一个**有浏览器的界面**：这里的一切都在浏览器侧，而那一侧的 `inject` 只写 harness 自己的服务（`slots`、`sessions`、`workspaces`、`locale`）。在没有浏览器的界面上——TUI、headless——客户端那一半根本不会被取，宿主那一半是空的，这是对的：这里没有东西要跑。
 
-每一个伴生插件都是可选的，缺谁都有答案，不会致命。没有 `omdsh-justchat` 就没有 `Chat` 工作区，独立侧边对话改在当前会话所在的工作区里开；没有 `omdsh-base` 就没有模式系统，嵌入按 Chat/Work 处理（永远可嵌入、默认关、按钮可用）；没有 `omdsh-shortcuts` 就保留内置的 ⌘L；没有 `omdsh-sidepanel`，标题栏那个角落只是空一点。它们都不出现在顶层 `inject` 里，所以全部没装的 profile 照样能起来，这个插件也照样能用。
+每一个伴生插件都是可选的，缺谁都有答案，不会致命。没有 `omdsh-chatmode` 就没有 `Chat` 工作区，独立侧边对话改在当前会话所在的工作区里开；没有 `omdsh-base` 就没有模式系统，嵌入按 Chat/Work 处理（永远可嵌入、默认关、按钮可用）；没有 `omdsh-shortcuts` 就保留内置的 ⌘L；没有 `omdsh-sidepanel`，标题栏那个角落只是空一点。它们都不出现在顶层 `inject` 里，所以全部没装的 profile 照样能起来，这个插件也照样能用。
 
 **它不注册任何设置命名空间。** 这里没有一样东西是表单画得出来的——唯一可调的是那个键，而它要么是内置默认值，要么是 `omdsh-shortcuts` 文档里的一行——所以插件面板会列出这个包，但不提供任何控件，这比摆一个空表单诚实。
 
