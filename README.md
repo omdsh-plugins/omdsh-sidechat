@@ -232,8 +232,21 @@ Runtime dependencies: **none**. Everything it draws with is a face the harness a
 ## Install
 
 ```sh
-dsh plugin --profile web add @omdsh-plugins/omdsh-sidechat
+npx @omdsh-plugins/omdsh-plughub add omdsh-sidechat
 ```
+
+That is the [plugin hub](https://github.com/omdsh-plugins/omdsh-plughub)'s
+installer with argv where the button was. It resolves this plugin from the
+collection's [registry](https://github.com/omdsh-plugins/registry), installs it
+from its GitHub repository, and writes the pnpm build-allowlist entry a bare
+`dsh plugin add github:…` would leave to you — the entry carries the commit pnpm
+resolved, so it can be copied out of a failure and never written down in
+advance.
+
+`dsh plugin --profile web add @omdsh-plugins/omdsh-sidechat` is **not** that command yet:
+this package is not on npm, and pnpm answers `ERR_PNPM_FETCH_404`. The same
+install is also a button, on this plugin's card in **Settings → Plugins → Plugin
+hub**, once the hub itself is in the profile.
 
 Or from a checkout:
 
