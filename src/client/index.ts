@@ -30,7 +30,7 @@
  * plugin's row removes the surface, the service and the listener together.
  *
  * The one rule read from the mode system — on a RESTRICTED fiber, so a
- * composition without `omdsh-base` behaves exactly as this plugin always did —
+ * composition without `omdsh-basemode` behaves exactly as this plugin always did —
  * is the embed preference: a side conversation can be created as a fork of the
  * conversation being supervised, so it carries that conversation's context
  * ([embed](./embed.ts), [sidecar](./sidecar.ts)). The preference is OFF by

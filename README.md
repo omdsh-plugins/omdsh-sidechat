@@ -65,7 +65,7 @@ And **what was said in it comes back too**. The harness pulls a session's histor
 - **Dim**: this conversation is standalone. Pressing it **embeds** — a fork of the conversation being supervised starts as a new side conversation carrying its context.
 - **Greyed out in Code mode**: that column is a terminal, there is no "current conversation" to embed. The button is disabled and nothing is ever forked.
 
-Both directions land as **a new conversation**, because a conversation's context is its history — it can neither be grafted in afterwards nor removed in place. Every mode defaults to dim — standalone — and the button is what turns embedding on; Code stays grey; a deployment without `omdsh-base` has no mode system and is treated as Chat/Work.
+Both directions land as **a new conversation**, because a conversation's context is its history — it can neither be grafted in afterwards nor removed in place. Every mode defaults to dim — standalone — and the button is what turns embedding on; Code stays grey; a deployment without `omdsh-basemode` has no mode system and is treated as Chat/Work.
 
 **Open in the Chat window** — jump to this conversation in the main UI. It is an ordinary session already (in the `Chat` workspace, or the source's workspace when it is a fork), so "opening" it is just navigation (`sessions.open`): no export, no copy, no second representation of the same messages. Go there to keep talking at length, or to see the full reasoning and tool calls — that is the workbench, this is the side. Disabled until a conversation is connected. An unsaved conversation opened this way keeps no sidebar row — press Save in the panel first when the conversation should stay findable.
 
@@ -223,7 +223,7 @@ Until a chord is bound to `sidechat.open` there, the header icon is the way in �
 
 `src/index.ts` is an empty `apply()`.
 
-The panel asks through `ISession.prompt`, reads answers through `SessionFace` (which *is* an `ObservableSnapshot<ConversationSnapshot>`), and finds a home through `ISessions.fork` or the runtime's own `session.create` — with the hide and the save going through `IWorkspaces.archiveSession` and one more fork — all public faces the browser already holds. The mode comes from the `sessionModes` service `omdsh-base` publishes, reached by name on a restricted fiber and treated as "no mode system" when it is not there. The anchor is built from the browser's own selection, with no filesystem read. So **there is no route to serve, no working directory to fence, and no reach for this plugin to acquire**.
+The panel asks through `ISession.prompt`, reads answers through `SessionFace` (which *is* an `ObservableSnapshot<ConversationSnapshot>`), and finds a home through `ISessions.fork` or the runtime's own `session.create` — with the hide and the save going through `IWorkspaces.archiveSession` and one more fork — all public faces the browser already holds. The mode comes from the `sessionModes` service `omdsh-basemode` publishes, reached by name on a restricted fiber and treated as "no mode system" when it is not there. The anchor is built from the browser's own selection, with no filesystem read. So **there is no route to serve, no working directory to fence, and no reach for this plugin to acquire**.
 
 The empty `apply()` exists to make this package a Loader entry, because that is the set `dsh-client-modules` scans for `dsh.client`.
 
@@ -264,7 +264,7 @@ dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
 
 It needs a **web surface**: the browser half is everything here, and its `inject` names only harness services (`slots`, `sessions`, `workspaces`, `locale`). On a surface with no browser — the TUI, headless — the client half is never fetched and the node half is a no-op, which is correct: there is nothing here to run.
 
-Every companion is optional and each absence is answered rather than fatal. With no `omdsh-chatmode` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-base` there is no mode system, so embedding is treated as Chat/Work (always embeddable, off by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
+Every companion is optional and each absence is answered rather than fatal. With no `omdsh-chatmode` there is no `Chat` workspace, so a standalone side conversation opens in the current conversation's workspace instead; with no `omdsh-basemode` there is no mode system, so embedding is treated as Chat/Work (always embeddable, off by default, button enabled); with no `omdsh-shortcuts` the built-in ⌘L stays; with no `omdsh-sidepanel` the header corner is simply emptier. None of them appears in a top-level `inject`, so a profile missing them all boots and this plugin works.
 
 **It registers no settings namespace.** There is nothing here a form could draw — the one adjustable thing is the chord, and that is either the built-in default or a row in `omdsh-shortcuts`'s document — so the plugin hub lists this package and offers no controls, which is the honest rendering rather than an empty panel.
 

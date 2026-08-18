@@ -65,7 +65,7 @@ harness 自己的对话列是一个**工作台**：推理、工具调用、结�
 - **暗着**：这条对话是独立的。按下去就是**嵌入**——fork 当前正在监工的那条，开一条带着它上下文的新对话。
 - **Code 模式下变灰**：那一列是终端，没有「当前会话」可以嵌入。按钮不可按，也永远不会 fork。
 
-两个方向都以**开一条新会话**落地，因为一个会话的上下文就是它的历史——既没法事后拼进去，也没法原地摘掉。每个模式都默认暗着——独立——按钮才是把嵌入打开的那一下；Code 里永远灰着；没装 `omdsh-base` 的部署没有模式系统，按 Chat/Work 处理。
+两个方向都以**开一条新会话**落地，因为一个会话的上下文就是它的历史——既没法事后拼进去，也没法原地摘掉。每个模式都默认暗着——独立——按钮才是把嵌入打开的那一下；Code 里永远灰着；没装 `omdsh-basemode` 的部署没有模式系统，按 Chat/Work 处理。
 
 **在 Chat 窗口中展现** —— 跳到主界面里的这条对话。它本来就是一条普普通通的会话（独立会话在 `Chat` 工作区，fork 在它源会话的工作区），所以「展现」就只是导航（`sessions.open`）：没有导出，没有复制，同一批消息不存在第二个表示。想接着长聊、想看完整的推理和工具调用，就去那边——那边是工作台，这里是侧边。还没连上会话时这个按钮是禁用的。没保存的会话这样打开后侧边栏里依旧没有它的行——希望它留在列表里，就先在面板里按保存。
 
@@ -223,7 +223,7 @@ ctx.sidechat.setSummonChord(null)                   // 交出这个键
 
 `src/index.ts` 是一个空 `apply()`。
 
-面板通过 `ISession.prompt` 提问、通过 `SessionFace`（它本身就是 `ObservableSnapshot<ConversationSnapshot>`）读回答、通过 `ISessions.fork` 或运行时自己的 `session.create` 安家——藏起来和保存走 `IWorkspaces.archiveSession` 和再一次 fork——全是浏览器本来就握着的公开面。模式来自 `omdsh-base` 发布的 `sessionModes` 服务，在受限 fiber 上按名去够，够不着就按「没有模式系统」处理。锚点则是拿浏览器自己的选区拼的，不读文件系统。所以**没有路由要开，没有工作目录要设栅栏，也没有任何这个插件需要新获得的可达性**。
+面板通过 `ISession.prompt` 提问、通过 `SessionFace`（它本身就是 `ObservableSnapshot<ConversationSnapshot>`）读回答、通过 `ISessions.fork` 或运行时自己的 `session.create` 安家——藏起来和保存走 `IWorkspaces.archiveSession` 和再一次 fork——全是浏览器本来就握着的公开面。模式来自 `omdsh-basemode` 发布的 `sessionModes` 服务，在受限 fiber 上按名去够，够不着就按「没有模式系统」处理。锚点则是拿浏览器自己的选区拼的，不读文件系统。所以**没有路由要开，没有工作目录要设栅栏，也没有任何这个插件需要新获得的可达性**。
 
 空 `apply()` 存在的唯一理由是让这个包成为 Loader entry，那才是 `dsh-client-modules` 扫描 `dsh.client` 的集合。
 
@@ -263,7 +263,7 @@ dsh plugin --profile web remove @omdsh-plugins/omdsh-sidechat
 
 它需要一个**有浏览器的界面**：这里的一切都在浏览器侧，而那一侧的 `inject` 只写 harness 自己的服务（`slots`、`sessions`、`workspaces`、`locale`）。在没有浏览器的界面上——TUI、headless——客户端那一半根本不会被取，宿主那一半是空的，这是对的：这里没有东西要跑。
 
-每一个伴生插件都是可选的，缺谁都有答案，不会致命。没有 `omdsh-chatmode` 就没有 `Chat` 工作区，独立侧边对话改在当前会话所在的工作区里开；没有 `omdsh-base` 就没有模式系统，嵌入按 Chat/Work 处理（永远可嵌入、默认关、按钮可用）；没有 `omdsh-shortcuts` 就保留内置的 ⌘L；没有 `omdsh-sidepanel`，标题栏那个角落只是空一点。它们都不出现在顶层 `inject` 里，所以全部没装的 profile 照样能起来，这个插件也照样能用。
+每一个伴生插件都是可选的，缺谁都有答案，不会致命。没有 `omdsh-chatmode` 就没有 `Chat` 工作区，独立侧边对话改在当前会话所在的工作区里开；没有 `omdsh-basemode` 就没有模式系统，嵌入按 Chat/Work 处理（永远可嵌入、默认关、按钮可用）；没有 `omdsh-shortcuts` 就保留内置的 ⌘L；没有 `omdsh-sidepanel`，标题栏那个角落只是空一点。它们都不出现在顶层 `inject` 里，所以全部没装的 profile 照样能起来，这个插件也照样能用。
 
 **它不注册任何设置命名空间。** 这里没有一样东西是表单画得出来的——唯一可调的是那个键，而它要么是内置默认值，要么是 `omdsh-shortcuts` 文档里的一行——所以插件面板会列出这个包，但不提供任何控件，这比摆一个空表单诚实。
 

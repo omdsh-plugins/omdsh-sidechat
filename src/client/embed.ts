@@ -22,7 +22,7 @@ import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 
 /**
  * Service name the mode registry is published under, by
- * `@omdsh-plugins/omdsh-base`.
+ * `@omdsh-plugins/omdsh-basemode`.
  *
  * A literal rather than an import — see the module note above, and rule 9 of
  * the conventions: a composition without the mode system keeps this plugin's
